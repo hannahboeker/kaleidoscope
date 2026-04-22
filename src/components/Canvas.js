@@ -45,15 +45,20 @@ const CanvasWrapper = styled.div`
   flex-direction: column;
   align-items: center;
 `;
+
 //___________________________________________________________________________________________________________
 //Naming convention: globale Constanten in Versalien
 const BREAKPOINT = 1024;
 const RATIO_LANDSCAPE = 148 / 105;
 const RATIO_PORTRAIT = 105 / 148;
+const SYMMETRY = 3;
+const BG_COLOR = 15;
+const STROKE_COLOR = 255;
+const STROKE_WEIGHT = 3;
 
 // Größe Postkarte
 function getSize() {
-  const portrait = window.innerWidth <= BREAKPOINT; //Vergleichsoperator, portrait true, wenn  Bildschirm schmal / false wenn breiter
+  const portrait = window.innerWidth <= BREAKPOINT; //Vergleichsoperator, portrait true, wenn Bildschirm schmal / false wenn breiter
   const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT; // Wenn Portrait true dann RATIO_PORTRAIT
   const padding = 64; // 32px pro Seite
   const controlsHeight = 48;
@@ -90,24 +95,56 @@ function getSize() {
 }
 
 //___________________________________________________________________________________________________________
+// Ausgelagerte Funktion die einen einzelnen Strich mit allen Symmetrie-Kopien zeichnet.
+// Wird sowohl beim Live-Zeichnen als auch beim Redraw (Undo/Resize) verwendet,
+// damit alles immer konsistent aussieht.
+function drawStrokeSymmetric(p, points) {
+  if (points.length < 2) return;
+  const angleStep = 360 / SYMMETRY;
+
+  const scale = Math.max(p.width, p.height) / 2; // Verhältnisse anstatt pixel soeichern damit skalierung der zeichnungen funktioniert
+
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+
+    for (let s = 0; s < SYMMETRY; s++) {
+      p.push(); // Transformations-Zustand speichern
+      p.rotate(angleStep * s); // Um 120° (bzw. 240°) rotieren
+
+      // Original-Linie
+      p.stroke(STROKE_COLOR);
+      p.strokeWeight(STROKE_WEIGHT);
+      p.line(
+        prev.x * scale, //verhältnisse wieder in pixel umwandeln
+        prev.y * scale,
+        curr.x * scale,
+        curr.y * scale,
+      );
+
+      // Gespiegelte Linie (Y-Achse umkehren)
+      p.scale(1, -1);
+      p.line(prev.x * scale, prev.y * scale, curr.x * scale, curr.y * scale);
+
+      p.pop(); // Transformations-Zustand wiederherstellen
+    }
+  }
+}
+
+//___________________________________________________________________________________________________________
 export default function Canvas() {
   const containerRef = useRef(null); // DOM-Element wo p5 den Canvas reinzeichnet
   const p5Ref = useRef(null); // p5-Instanz für handleUndo
   const strokesRef = useRef([]); // Linien | Ref weil p5 drauf zugreift
   const [strokeCount, setStrokeCount] = useState(0); // nur für undo-Button
 
-  //useCallback damit durch useEffect später nicht bei jedem render neu erstellen
-  // Für undo und resize
   const redrawStrokes = useCallback((p) => {
-    p.background(15);
-    strokesRef.current.forEach((stroke) => {
-      p.stroke(255);
-      p.strokeWeight(3);
-      stroke.forEach((pt, i) => {
-        if (i === 0) return;
-        p.line(stroke[i - 1].x, stroke[i - 1].y, pt.x, pt.y);
-      });
-    });
+    p.background(BG_COLOR);
+    p.push();
+    p.translate(p.width / 2, p.height / 2); // Ursprung = Canvas-Mitte
+    p.angleMode(p.DEGREES);
+    strokesRef.current.forEach((stroke) => drawStrokeSymmetric(p, stroke));
+    p.pop();
   }, []);
 
   useEffect(() => {
@@ -117,39 +154,87 @@ export default function Canvas() {
       let currentStroke = [];
       let isDrawing = false;
 
-      //noLoop() stoppt 60fps-Loop von p5
       p.setup = () => {
         const { w, h } = getSize();
         const cnv = p.createCanvas(w, h);
         cnv.style("display", "block");
-        p.background(15);
+        p.background(BG_COLOR);
         p.strokeCap(p.ROUND);
+        p.angleMode(p.DEGREES);
         p.noLoop();
       };
 
-      // hier getSize aufgerufen, liest window größe aktuell aus
       p.windowResized = () => {
         const { w, h } = getSize();
         p.resizeCanvas(w, h);
-        redrawStrokes(p); // Funktion aufrufen, alles neu zeichnen
+        redrawStrokes(p);
       };
 
       p.mousePressed = () => {
+        if (
+          p.mouseX < 0 ||
+          p.mouseX > p.width ||
+          p.mouseY < 0 ||
+          p.mouseY > p.height
+        )
+          return;
         isDrawing = true;
-        currentStroke = [{ x: p.mouseX, y: p.mouseY }]; //Start
+
+        const scale = Math.max(p.width, p.height) / 2;
+
+        currentStroke = [
+          {
+            x: (p.mouseX - p.width / 2) / scale,
+            y: (p.mouseY - p.height / 2) / scale,
+          },
+        ];
       };
 
       p.mouseDragged = () => {
         if (!isDrawing) return;
-        const prev = currentStroke[currentStroke.length - 1]; //Letzter Punkt
-        const point = { x: p.mouseX, y: p.mouseY };
+        if (
+          p.mouseX < 0 ||
+          p.mouseX > p.width ||
+          p.mouseY < 0 ||
+          p.mouseY > p.height
+        )
+          return;
+
+        const scale = Math.max(p.width, p.height) / 2;
+
+        const prev = currentStroke[currentStroke.length - 1];
+        const point = {
+          x: (p.mouseX - p.width / 2) / scale,
+          y: (p.mouseY - p.height / 2) / scale,
+        };
         currentStroke.push(point);
-        p.stroke(255);
-        p.strokeWeight(3);
-        p.line(prev.x, prev.y, point.x, point.y); //Linie Punkt zu Punkt
+
+        p.push();
+        p.translate(p.width / 2, p.height / 2);
+        const angleStep = 360 / SYMMETRY;
+        for (let s = 0; s < SYMMETRY; s++) {
+          p.push();
+          p.rotate(angleStep * s);
+          p.stroke(STROKE_COLOR);
+          p.strokeWeight(STROKE_WEIGHT);
+          p.line(
+            prev.x * scale,
+            prev.y * scale,
+            point.x * scale,
+            point.y * scale,
+          );
+          p.scale(1, -1);
+          p.line(
+            prev.x * scale,
+            prev.y * scale,
+            point.x * scale,
+            point.y * scale,
+          );
+          p.pop();
+        }
+        p.pop();
       };
 
-      //wenn nicht zeichnet (weniger als zwei Punkte die Linie ergeben könnten)
       p.mouseReleased = () => {
         if (!isDrawing || currentStroke.length < 2) {
           isDrawing = false;
@@ -174,7 +259,6 @@ export default function Canvas() {
     };
   }, [redrawStrokes]);
 
-  //Canvas schwarz übermalen, alle Linien neu
   const handleUndo = () => {
     if (strokesRef.current.length === 0) return;
     strokesRef.current.pop();
@@ -189,7 +273,6 @@ export default function Canvas() {
       <CanvasWrapper>
         <div ref={containerRef} />
         <Controls>
-          {/* wenn keine strokes gezählt, button disabled */}
           <UndoButton onClick={handleUndo} disabled={strokeCount === 0}>
             undo
           </UndoButton>
