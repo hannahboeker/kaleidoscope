@@ -5,6 +5,7 @@ import Design from "@/models/Design";
 //request.json liest den inhalt aus
 //destructering um einzelnen felder dirket rauszulesen
 export async function POST(request) {
+  console.log("MONGODB_URI =", process.env.MONGODB_URI);
   try {
     await connectToDatabase();
     const body = await request.json();

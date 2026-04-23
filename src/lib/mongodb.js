@@ -1,13 +1,11 @@
 import mongoose from "mongoose";
 
-//Auslesen aus env
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
   throw new Error("MONGODB_URI fehlt in .env.local");
 }
 
-// sonst bei jedem request neue Datenbank verbindung gemacht
 let cached = global.mongoose;
 
 if (!cached) {
@@ -15,11 +13,23 @@ if (!cached) {
 }
 
 export async function connectToDatabase() {
-  //Wenn verbindung existiert dirjet zurückgeben
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((mongoose) => mongoose);
+    cached.promise = mongoose
+      .connect(MONGODB_URI, {
+        serverApi: {
+          version: "1",
+          strict: true,
+          deprecationErrors: true,
+        },
+      })
+      .then((m) => m)
+      .catch((err) => {
+        // Promise-Cache zurücksetzen damit der nächste Request es erneut versucht
+        cached.promise = null;
+        throw err;
+      });
   }
 
   cached.conn = await cached.promise;
