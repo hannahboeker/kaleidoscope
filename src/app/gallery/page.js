@@ -60,27 +60,39 @@ const EmptyState = styled.p`
 export default function GalleryPage() {
   const [designs, setDesigns] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const userId = getUserId();
 
-    // DOMPurify dynamisch importiert / läuft nnur in Browser
-    import("dompurify").then(({ default: DOMPurify }) => {
-      fetch(`/api/designs?userId=${userId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          // SVG-String säubern vor speichern damit kein gefährliches javascript rein kann
-          const sanitized = data.designs.map((design) => ({
-            ...design,
-            svg: DOMPurify.sanitize(design.svg),
-          }));
-          setDesigns(sanitized);
-          setLoading(false);
-        });
-    });
+    // DOMPurify dynamisch importiert / läuft nur im Browser
+    import("dompurify")
+      .then(({ default: DOMPurify }) => {
+        return fetch(`/api/designs?userId=${userId}`)
+          .then((res) => res.json())
+          .then((data) => {
+            const list = data.designs ?? [];
+            // SVG-String säubern vor dem Speichern damit kein gefährliches JavaScript rein kann
+            const sanitized = list.map((design) => ({
+              ...design,
+              svg: DOMPurify.sanitize(design.svg, {
+                USE_PROFILES: { svg: true },
+              }),
+            }));
+            setDesigns(sanitized);
+          });
+      })
+      .catch((err) => {
+        console.error("Failed to load designs:", err);
+        setError("Failed to load designs.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   if (loading) return <Page>Loading...</Page>;
+  if (error) return <Page>{error}</Page>;
 
   return (
     <Page>
