@@ -12,27 +12,16 @@ export async function POST(request) {
 
     if (!userId || !svg) {
       return Response.json(
-        { error: "userId und svg sind erforderlich" },
+        { error: "userId and svg are mandatory" },
         { status: 400 },
       );
     }
 
-    // Upsert: existierendes Design überschreiben oder neu anlegen
-    // findeOneAndUpdate sucht dokuemnt mit gegebener userID und aktualiseirt es
-    //upsert: true = wenn keins gefunden erstell ein neues
-    //new:true gibt aktualiesiertes dok zurück
-    const design = await Design.findOneAndUpdate(
-      { userId },
-      { svg, strokes, symmetry, userId },
-      { upsert: true, new: true },
-    );
+    const design = await Design.create({ userId, svg, strokes, symmetry });
 
     return Response.json({ success: true, designId: design._id });
   } catch (error) {
     console.error("Save error:", error);
-    return Response.json(
-      { error: "Speichern fehlgeschlagen" },
-      { status: 500 },
-    );
+    return Response.json({ error: "Saving failed" }, { status: 500 });
   }
 }
