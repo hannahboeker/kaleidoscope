@@ -178,7 +178,6 @@ export default function Canvas() {
         p.pop();
       };
 
-      //wenn nicht zeichnet (weniger als zwei Punkte die Linie ergeben könnten)
       p.mouseReleased = () => {
         if (!isDrawing || currentStroke.length < 2) {
           isDrawing = false;
@@ -203,7 +202,6 @@ export default function Canvas() {
     };
   }, [redrawStrokes]);
 
-  //Canvas schwarz übermalen, alle Linien neu
   const handleUndo = () => {
     if (strokesRef.current.length === 0) return;
     strokesRef.current.pop();
