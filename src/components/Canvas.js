@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import p5 from "p5";
 import styled from "styled-components";
+import Link from "next/link";
 import {
   BREAKPOINT,
   RATIO_LANDSCAPE,
@@ -261,6 +262,9 @@ export default function Canvas() {
             {saveState === "idle" && "save"}
           </SaveButton>
           {/* wenn keine strokes gezählt, button disabled */}
+          <Button as={Link} href="/gallery">
+            gallery
+          </Button>
           <UndoButton onClick={handleUndo} disabled={strokeCount === 0}>
             undo
           </UndoButton>
