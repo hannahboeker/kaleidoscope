@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import p5 from "p5";
 import styled from "styled-components";
 import Link from "next/link";
@@ -37,7 +38,7 @@ const Controls = styled.div`
   width: 100%;
 `;
 
-// Basis-Button Styling — wird von UndoButton und SaveButton geteilt
+// Basis-Button Styling, wird von UndoButton und SaveButton geteilt
 const Button = styled.button`
   padding: 8px 20px;
   background: transparent;
@@ -79,8 +80,11 @@ export default function Canvas() {
   const p5Ref = useRef(null); // p5-Instanz für handleUndo
   const strokesRef = useRef([]); // Linien | Ref weil p5 drauf zugreift
   const [strokeCount, setStrokeCount] = useState(0); // nur für undo-Button
-  // "idle" | "saving" | "saved" | "error" — steuert Save-Button Text und Farbe
   const [saveState, setSaveState] = useState("idle");
+  //useSearchParams statt window.location.search weil raktiv, auch bei Client-Side-Navigation.
+  // Sonst wenn editbutton klickt schwarzer canvas und erst bei reload sichtbar
+  const searchParams = useSearchParams();
+  const designId = searchParams.get("id");
 
   const redrawStrokes = useCallback((p) => {
     p.background(BG_COLOR);
@@ -91,6 +95,29 @@ export default function Canvas() {
     p.pop();
   }, []);
 
+  // EDIT BUTTON FETCH / Fetch läuft async — p5 fertig wenn Callback aufgerufen
+  useEffect(() => {
+    if (!designId) return;
+
+    // wenn designID gesetzt, Strokes geladen und in strokesRef.current,
+    const userId = getUserId();
+    fetch(`/api/design/${designId}?userId=${userId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        strokesRef.current = data.design?.strokes ?? [];
+        setStrokeCount(strokesRef.current.length);
+        // requestAnimationFrame damit erst p5 eigenener Start-zyklus abgeschlossen ist und dann redrawt wird
+        // sonst könnte p5 Canvas danach löschen durch initial setup
+        requestAnimationFrame(() => {
+          if (p5Ref.current && strokesRef.current.length > 0) {
+            redrawStrokes(p5Ref.current);
+          }
+        });
+      })
+      .catch((err) => console.error("loading design failed:", err));
+  }, [designId, redrawStrokes]);
+
+  // Canvas setup
   useEffect(() => {
     if (p5Ref.current) return;
 
@@ -100,12 +127,15 @@ export default function Canvas() {
 
       p.setup = () => {
         const { w, h } = getSize();
+
         const cnv = p.createCanvas(w, h);
         cnv.style("display", "block");
         p.background(BG_COLOR);
         p.strokeCap(p.ROUND);
         p.angleMode(p.DEGREES);
         p.noLoop();
+        //Saftey Fallback falls strokes schon vor setup geladen
+        if (strokesRef.current.length > 0) redrawStrokes(p);
       };
 
       p.windowResized = () => {
@@ -223,16 +253,22 @@ export default function Canvas() {
       const userId = getUserId(); // UUID aus localStorage oder neu generieren
       const svg = buildSVG(strokesRef.current, p.width, p.height);
 
-      const response = await fetch("/api/design/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          svg,
-          strokes: strokesRef.current,
-          symmetry: SYMMETRY,
-        }),
-      });
+      const response = designId
+        ? await fetch(`/api/design/${designId}?userId=${userId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ svg, strokes: strokesRef.current }),
+          })
+        : await fetch("/api/design/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId,
+              svg,
+              strokes: strokesRef.current,
+              symmetry: SYMMETRY,
+            }),
+          });
 
       if (!response.ok) throw new Error("Speichern fehlgeschlagen");
 

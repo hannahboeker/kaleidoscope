@@ -43,7 +43,8 @@ const Grid = styled.div`
 const CardWrapper = styled.div`
   position: relative;
 
-  &:hover button {
+  &:hover button,
+  &:hover a {
     opacity: 1;
   }
 `;
@@ -78,6 +79,30 @@ const DeleteButton = styled.button`
 
   &:hover {
     background: #ff3b3b;
+    color: #0a0a0a;
+  }
+`;
+
+const EditLink = styled(Link)`
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: #0a0a0a;
+  color: #15ff00;
+  border: 2px solid #15ff00;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  &:hover {
+    background: #15ff00;
     color: #0a0a0a;
   }
 `;
@@ -173,6 +198,7 @@ export default function GalleryPage() {
           {designs.map((design) => (
             <CardWrapper key={design._id}>
               <Card dangerouslySetInnerHTML={{ __html: design.svg }} />
+              <EditLink href={`/?id=${design._id}`}>✎</EditLink>
               <DeleteButton onClick={() => handleDelete(design._id)}>
                 ✕
               </DeleteButton>
