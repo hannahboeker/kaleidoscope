@@ -40,6 +40,14 @@ const Grid = styled.div`
   gap: 16px;
 `;
 
+const CardWrapper = styled.div`
+  position: relative;
+
+  &:hover button {
+    opacity: 1;
+  }
+`;
+
 const Card = styled.div`
   border: 2px solid #15ff00;
   border-radius: 8px;
@@ -53,6 +61,27 @@ const Card = styled.div`
   }
 `;
 
+const DeleteButton = styled.button`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #0a0a0a;
+  color: #ff3b3b;
+  border: 2px solid #ff3b3b;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+
+  &:hover {
+    background: #ff3b3b;
+    color: #0a0a0a;
+  }
+`;
+
 const EmptyState = styled.p`
   color: #555;
 `;
@@ -61,6 +90,28 @@ export default function GalleryPage() {
   const [designs, setDesigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  //DELETE
+  async function handleDelete(id) {
+    if (!window.confirm("delete?")) return;
+
+    // sofort entfernen (optimistic UI) /1. stand als kopie speichern /2. behalte alle ids die nicht die zu löschende id sind
+    // prev, von react, State zum zeitpunkt des aufrufs
+    const previous = designs;
+    setDesigns((prev) => prev.filter((d) => d._id !== id));
+
+    //erst nachdem anzeige geändert wurde geht request ab
+    const userId = getUserId();
+    const res = await fetch(`/api/design/${id}?userId=${userId}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      // error wenn Request fehlschlägt
+      setDesigns(previous);
+      alert("Deletion failed. Please try again.");
+    }
+  }
 
   useEffect(() => {
     const userId = getUserId();
@@ -105,10 +156,12 @@ export default function GalleryPage() {
       ) : (
         <Grid>
           {designs.map((design) => (
-            <Card
-              key={design._id}
-              dangerouslySetInnerHTML={{ __html: design.svg }}
-            />
+            <CardWrapper key={design._id}>
+              <Card dangerouslySetInnerHTML={{ __html: design.svg }} />
+              <DeleteButton onClick={() => handleDelete(design._id)}>
+                ✕
+              </DeleteButton>
+            </CardWrapper>
           ))}
         </Grid>
       )}
