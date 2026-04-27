@@ -120,20 +120,35 @@ export default function GalleryPage() {
   async function handleDelete(id) {
     if (!window.confirm("delete?")) return;
 
-    // sofort entfernen (optimistic UI) /1. stand als kopie speichern /2. behalte alle ids die nicht die zu löschende id sind
+    // sofort entfernen (optimistic UI) /1. behalte alle ids die nicht die zu löschende id sind
     // prev, von react, State zum zeitpunkt des aufrufs
-    const previous = designs;
     setDesigns((prev) => prev.filter((d) => d._id !== id));
 
     //erst nachdem anzeige geändert wurde geht request ab
-    const userId = getUserId();
-    const res = await fetch(`/api/design/${id}?userId=${userId}`, {
-      method: "DELETE",
-    });
+    try {
+      const userId = getUserId();
+      const res = await fetch(`/api/design/${id}?userId=${userId}`, {
+        method: "DELETE",
+      });
 
-    if (!res.ok) {
-      // error wenn Request fehlschlägt
-      setDesigns(previous);
+      if (!res.ok) throw new Error("Delete failed");
+    } catch {
+      // error wenn Request fehlschlägt (Netzwerk oder !res.ok)
+      // neu vom Server laden statt previous-rollback — verhindert stale state bei schnellen Deletes
+      const userId = getUserId();
+      //Datenbank neu abfragen
+      const { default: DOMPurify } = await import("dompurify");
+      const data = await fetch(`/api/designs?userId=${userId}`).then((r) =>
+        r.json(),
+      );
+      //State neu setzten, durch aktuelle daten mappen
+      const list = data.designs ?? [];
+      setDesigns(
+        list.map((d) => ({
+          ...d,
+          svg: DOMPurify.sanitize(d.svg, { USE_PROFILES: { svg: true } }),
+        })),
+      );
       alert("Deletion failed. Please try again.");
     }
   }
