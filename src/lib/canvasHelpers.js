@@ -3,8 +3,8 @@ export const BREAKPOINT = 1024;
 export const RATIO_LANDSCAPE = 148 / 105;
 export const RATIO_PORTRAIT = 105 / 148;
 export const SYMMETRY = 3;
-export const BG_COLOR = 15;
-export const STROKE_COLOR = 255;
+export const BG_COLOR = "#1e0035";
+export const STROKE_COLOR = "#00ff66";
 export const STROKE_WEIGHT = 3;
 
 // Größe Postkarte
@@ -73,7 +73,7 @@ export function buildSVG(strokes, canvasW, canvasH) {
             return `${i === 0 ? "M" : "L"} ${(cx + rx * scale).toFixed(2)} ${(cy + ry * scale).toFixed(2)}`;
           })
           .join(" ");
-        result += `<path d="${d1}" stroke="white" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
+        result += `<path d="${d1}" stroke="${STROKE_COLOR}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
 
         // Y gespiegelt, dann rotiert
         const d2 = points
@@ -83,13 +83,13 @@ export function buildSVG(strokes, canvasW, canvasH) {
             return `${i === 0 ? "M" : "L"} ${(cx + rx * scale).toFixed(2)} ${(cy + ry * scale).toFixed(2)}`;
           })
           .join(" ");
-        result += `<path d="${d2}" stroke="white" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
+        result += `<path d="${d2}" stroke="${STROKE_COLOR}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
       }
       return result;
     })
     .join("\n");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}" style="background:#0f0f0f">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}" style="background:${BG_COLOR}">
 ${paths}
 </svg>`;
 }
