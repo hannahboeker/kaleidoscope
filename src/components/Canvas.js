@@ -234,31 +234,32 @@ export default function Canvas() {
   }, [redrawStrokes]);
 
   const handleExport = async () => {
-    const p = p5Ref.current;
-    const svg = buildSVG(strokesRef.current, p.width, p.height);
+    try {
+      const canvas = p5Ref.current;
+      const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
 
-    const response = await fetch("/api/export", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        svg,
-        bgColor: BG_COLOR,
-        strokeColor: STROKE_COLOR,
-      }),
-    });
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          svg,
+          bgColor: BG_COLOR,
+          strokeColor: STROKE_COLOR,
+        }),
+      });
 
-    if (!response.ok) {
-      console.error("Export failed");
-      return;
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = url;
+      downloadLink.download = "kaleidoscope-postcard.pdf";
+      downloadLink.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
     }
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "kaleidoscope-postcard.pdf";
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleUndo = () => {
