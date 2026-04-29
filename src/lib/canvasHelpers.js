@@ -3,20 +3,18 @@ export const BREAKPOINT = 1024;
 export const RATIO_LANDSCAPE = 148 / 105;
 export const RATIO_PORTRAIT = 105 / 148;
 export const SYMMETRY = 3;
-export const BG_COLOR = "#1e0035";
-export const STROKE_COLOR = "#00ff66";
+export const BG_COLOR = "#ffffff";
+export const STROKE_COLOR = "#0800ff";
 export const STROKE_WEIGHT = 3;
+export const HEADER_HEIGHT = 130;
+export const FOOTER_HEIGHT = 160;
 
 // Größe Postkarte
 export function getSize() {
-  const portrait = window.innerWidth <= BREAKPOINT; //Vergleichsoperator, portrait true, wenn Bildschirm schmal / false wenn breiter
-  const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT; // Wenn Portrait true dann RATIO_PORTRAIT
-  const padding = 64; // 32px pro Seite
-  const controlsHeight = 48;
-
-  //Wie viel Space dann in total
-  const availableW = window.innerWidth - padding;
-  const availableH = window.innerHeight - padding - controlsHeight;
+  const portrait = window.innerWidth <= BREAKPOINT;
+  const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT;
+  const availableW = window.innerWidth;
+  const availableH = window.innerHeight - HEADER_HEIGHT - FOOTER_HEIGHT;
 
   // Berechne Größe die in beide Dimensionen passt
   let w = availableW;
