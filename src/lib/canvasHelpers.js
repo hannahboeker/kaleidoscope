@@ -3,93 +3,88 @@ export const BREAKPOINT = 1024;
 export const RATIO_LANDSCAPE = 148 / 105;
 export const RATIO_PORTRAIT = 105 / 148;
 export const SYMMETRY = 3;
-export const BG_COLOR = 15;
-export const STROKE_COLOR = 255;
+export const BG_COLOR = "#1e0035";
+export const STROKE_COLOR = "#00ff66";
 export const STROKE_WEIGHT = 3;
 
 // Größe Postkarte
 export function getSize() {
-  const portrait = window.innerWidth <= BREAKPOINT; //Vergleichsoperator, portrait true, wenn Bildschirm schmal / false wenn breiter
-  const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT; // Wenn Portrait true dann RATIO_PORTRAIT
+  const portrait = window.innerWidth <= BREAKPOINT;
+  const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT;
   const padding = 64; // 32px pro Seite
   const controlsHeight = 48;
 
-  //Wie viel Space dann in total
   const availableW = window.innerWidth - padding;
   const availableH = window.innerHeight - padding - controlsHeight;
 
-  // Berechne Größe die in beide Dimensionen passt
-  let w = availableW;
-  let h = portrait ? w * ratio : w / RATIO_LANDSCAPE;
+  let width = availableW;
+  let height;
 
   if (portrait) {
-    h = w * ratio; // größe berechnen, wenn größer als available space, dann = available space
-    if (h > availableH) {
-      h = availableH;
-      w = h / ratio;
+    height = width * ratio;
+    if (height > availableH) {
+      height = availableH;
+      width = height / ratio;
     }
   } else {
-    h = w * RATIO_PORTRAIT; // querformat
-    if (h > availableH) {
-      h = availableH;
-      w = h / RATIO_PORTRAIT;
+    height = width * RATIO_PORTRAIT;
+    if (height > availableH) {
+      height = availableH;
+      width = height / RATIO_PORTRAIT;
     }
-    // max breite auf desktop
     const maxW = 800;
-    if (w > maxW) {
-      w = maxW;
-      h = w * RATIO_PORTRAIT;
+    if (width > maxW) {
+      width = maxW;
+      height = width * RATIO_PORTRAIT;
     }
   }
 
-  return { w: Math.floor(w), h: Math.floor(h) };
+  return { w: Math.floor(width), h: Math.floor(height) };
 }
 
 // Baut aus gespeicherten Strokes SVG-String
-//So wird aus Daten ein Bild das angezeigt werden kann
 // M = move to (Startpunkt), L = line to (Linie zum nächsten Punkt)
 export function buildSVG(strokes, canvasW, canvasH) {
-  const scale = Math.max(canvasW, canvasH) / 2; // gleiche scale wie beim Zeichnen
-  const cx = canvasW / 2;
-  const cy = canvasH / 2;
+  const scale = Math.max(canvasW, canvasH) / 2;
+  const centerX = canvasW / 2;
+  const centerY = canvasH / 2;
   const angleStep = (2 * Math.PI) / SYMMETRY;
 
   const paths = strokes
     .map((points) => {
       if (points.length < 2) return "";
 
-      // Alle Symmetrie-Kopien als SVG paths
       let result = "";
-      for (let s = 0; s < SYMMETRY; s++) {
-        const angle = angleStep * s;
+      for (let symmetryIndex = 0; symmetryIndex < SYMMETRY; symmetryIndex++) {
+        const angle = angleStep * symmetryIndex;
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
 
         // Original rotiert
-        const d1 = points
-          .map((pt, i) => {
-            const rx = pt.x * cos - pt.y * sin;
-            const ry = pt.x * sin + pt.y * cos;
-            return `${i === 0 ? "M" : "L"} ${(cx + rx * scale).toFixed(2)} ${(cy + ry * scale).toFixed(2)}`;
+        const pathOriginal = points
+          .map((point, i) => {
+            const rotatedX = point.x * cos - point.y * sin;
+            const rotatedY = point.x * sin + point.y * cos;
+            return `${i === 0 ? "M" : "L"} ${(centerX + rotatedX * scale).toFixed(2)} ${(centerY + rotatedY * scale).toFixed(2)}`;
           })
           .join(" ");
-        result += `<path d="${d1}" stroke="white" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
+        result += `<path d="${pathOriginal}" stroke="${STROKE_COLOR}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
 
         // Y gespiegelt, dann rotiert
-        const d2 = points
-          .map((pt, i) => {
-            const rx = pt.x * cos - -pt.y * sin;
-            const ry = pt.x * sin + -pt.y * cos;
-            return `${i === 0 ? "M" : "L"} ${(cx + rx * scale).toFixed(2)} ${(cy + ry * scale).toFixed(2)}`;
+        const pathMirrored = points
+          .map((point, i) => {
+            const rotatedX = point.x * cos - -point.y * sin;
+            const rotatedY = point.x * sin + -point.y * cos;
+            return `${i === 0 ? "M" : "L"} ${(centerX + rotatedX * scale).toFixed(2)} ${(centerY + rotatedY * scale).toFixed(2)}`;
           })
           .join(" ");
-        result += `<path d="${d2}" stroke="white" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
+        result += `<path d="${pathMirrored}" stroke="${STROKE_COLOR}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
       }
       return result;
     })
     .join("\n");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}" style="background:#0f0f0f">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}" style="background:${BG_COLOR}">
 ${paths}
 </svg>`;
 }
@@ -115,38 +110,40 @@ export function getUserId() {
   return userId;
 }
 
-// Ausgelagerte Funktion die einen einzelnen Strich mit allen Symmetrie-Kopien zeichnet.
-// Wird sowohl beim Live-Zeichnen als auch beim Redraw (Undo/Resize) verwendet,
-// damit alles immer konsistent aussieht
-export function drawStrokeSymmetric(p, points) {
+// Zeichnet einen einzelnen Strich mit allen Symmetrie-Kopien.
+// Wird beim Live-Zeichnen und beim Redraw (Undo/Resize) verwendet.
+export function drawStrokeSymmetric(sketch, points) {
   if (points.length < 2) return;
   const angleStep = 360 / SYMMETRY;
-
-  const scale = Math.max(p.width, p.height) / 2; // Verhältnisse anstatt pixel speichern damit skalierung der zeichnungen funktioniert
+  const scale = Math.max(sketch.width, sketch.height) / 2;
 
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1];
     const curr = points[i];
 
-    for (let s = 0; s < SYMMETRY; s++) {
-      p.push(); // Transformations-Zustand speichern
-      p.rotate(angleStep * s); // Um 120° (bzw. 240°) rotieren
+    for (let symmetryIndex = 0; symmetryIndex < SYMMETRY; symmetryIndex++) {
+      sketch.push();
+      sketch.rotate(angleStep * symmetryIndex);
 
-      // Original-Linie
-      p.stroke(STROKE_COLOR);
-      p.strokeWeight(STROKE_WEIGHT);
-      p.line(
-        prev.x * scale, //verhältnisse wieder in pixel umwandeln
+      sketch.stroke(STROKE_COLOR);
+      sketch.strokeWeight(STROKE_WEIGHT);
+      sketch.line(
+        prev.x * scale,
         prev.y * scale,
         curr.x * scale,
         curr.y * scale,
       );
 
       // Gespiegelte Linie (Y-Achse umkehren)
-      p.scale(1, -1);
-      p.line(prev.x * scale, prev.y * scale, curr.x * scale, curr.y * scale);
+      sketch.scale(1, -1);
+      sketch.line(
+        prev.x * scale,
+        prev.y * scale,
+        curr.x * scale,
+        curr.y * scale,
+      );
 
-      p.pop(); // Transformations-Zustand wiederherstellen
+      sketch.pop();
     }
   }
 }

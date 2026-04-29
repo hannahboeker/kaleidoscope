@@ -233,6 +233,35 @@ export default function Canvas() {
     };
   }, [redrawStrokes]);
 
+  const handleExport = async () => {
+    try {
+      const canvas = p5Ref.current;
+      const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
+
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          svg,
+          bgColor: BG_COLOR,
+          strokeColor: STROKE_COLOR,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = url;
+      downloadLink.download = "kaleidoscope-postcard.pdf";
+      downloadLink.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleUndo = () => {
     if (strokesRef.current.length === 0) return;
     strokesRef.current.pop();
@@ -300,6 +329,9 @@ export default function Canvas() {
           {/* wenn keine strokes gezählt, button disabled */}
           <Button as={Link} href="/gallery">
             gallery
+          </Button>
+          <Button onClick={handleExport} disabled={strokeCount === 0}>
+            export pdf
           </Button>
           <UndoButton onClick={handleUndo} disabled={strokeCount === 0}>
             undo
