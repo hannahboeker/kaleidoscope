@@ -40,7 +40,7 @@ const RAINBOW_EXPORT = [
 ];
 
 const FONT_SIZE = "30px";
-
+//.split um einzelne Buchstaben zu färben // Wenn index größer als array beginn von vorne
 function RainbowText({ text, colors = RAINBOW }) {
   return (
     <>
@@ -53,27 +53,7 @@ function RainbowText({ text, colors = RAINBOW }) {
   );
 }
 
-/*
-  Full-page SVG geometry (viewBox "0 0 100 100", preserveAspectRatio="none"):
-  - x 0–100 = 0–100 % viewport width
-  - y 0–100 = 0–100 % viewport height
-
-  Large oval (rx=69 so sides go off-screen; ry=46):
-    cx=50, cy=50, rx=69, ry=46  →  top at y=4%, bottom at y=96%
-    • visible as an arch at the top of the header
-    • hidden behind the opaque canvas in the middle
-    • bottom arc visible in the footer
-
-  Gallery oval (center at screen bottom edge):
-    cx=50, cy=100, rx=46, ry=12  →  top at y=88%, center at y=100%
-    • upper half visible in footer as a wide arch
-    • "gallery" link text sits in the dark area below the white lens
-
-  Intersection of the two ovals (y=88–96%):
-    filled white → the export lens, center at y≈92%
-    export button sits at bottom: 9% (≈center of lens)
-*/
-
+//BackgroundSVG orientiert sich absolut hier dran, scrollen ausstellen
 const PageWrapper = styled.div`
   width: 100vw;
   height: 100vh;
@@ -85,7 +65,7 @@ const PageWrapper = styled.div`
   position: relative;
 `;
 
-/* Sits behind everything; draws the two ovals and the white lens */
+//hinter allem, weiße ovale und schnittmenge
 const BackgroundSVG = styled.svg`
   position: absolute;
   inset: 0;
@@ -123,6 +103,7 @@ const TitleOval = styled.div`
   z-index: 2;
 `;
 
+//Basis für Button
 const SideOval = styled.button`
   position: fixed;
   width: 56px;
@@ -157,7 +138,12 @@ const SaveOval = styled(SideOval)`
   ${({ $error }) => $error && `border-color: #e63535; color: #e63535;`}
 `;
 
-/* Canvas fills the middle; the opaque p5 canvas element hides the SVG behind it */
+const SaveLabel = styled.span`
+  display: inline-block;
+  transform: rotate(-90deg) translateY(-10px);
+`;
+
+// Canvas in der Mitte, p5-Element verdeckt SVG dahinter
 const CanvasSection = styled.main`
   flex: 1;
   min-height: 0;
@@ -177,12 +163,7 @@ const Footer = styled.footer`
   z-index: 1;
 `;
 
-/*
-  Export button and gallery link are fixed to the viewport so they
-  always align with the SVG geometry regardless of canvas size.
-  y=96% of viewport = inside the white lens (intersection y=92–100).
-  y=97.5% = just below the lens, inside the gallery oval.
-*/
+// position: fixed immer am SVG ausgerichtet, unabhängig von Canvas-Größe
 const ExportButton = styled.button`
   position: fixed;
   bottom: 10%;
@@ -217,8 +198,7 @@ const GalleryButton = styled.button`
   letter-spacing: 0.09em;
 `;
 
-/* CSS-Oval für den gallery-Kreis: Unterkante liegt auf der Bildschirmkante unten,
-   das gesamte Oval ist sichtbar. */
+// //expanding nicht an DOM, wenn true animatiionstartet
 const GalleryOval = styled.div`
   position: fixed;
   bottom: 0;
@@ -251,6 +231,7 @@ export default function Canvas() {
   const designId = searchParams.get("id");
   const router = useRouter();
 
+  //TODO:Timing noch verbessern? löst nach 700ms aus
   const handleGalleryNav = () => {
     setExpanding(true);
     setTimeout(() => router.push("/gallery"), 700);
@@ -470,6 +451,7 @@ export default function Canvas() {
 
   return (
     <PageWrapper>
+      {/* SVG wird auf Bildschrimgröße gestrckt mit preserveAspectRatio="none", Koordinate 50 = 50% Viewport, X/Y skalieren unabhängig */}
       <BackgroundSVG viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
           <clipPath id="gallery-clip">
@@ -477,7 +459,7 @@ export default function Canvas() {
           </clipPath>
         </defs>
 
-        {/* white lens: large oval clipped to gallery oval = intersection */}
+        {/* weiße Linse — Schnittfläche der zwei Ovale, ergibt weißen Bereich für export */}
         <ellipse
           cx="50"
           cy="46"
@@ -487,7 +469,7 @@ export default function Canvas() {
           clipPath="url(#gallery-clip)"
         />
 
-        {/* large oval outline */}
+        {/* großes Oval, Umriss  */}
         <ellipse
           cx="50"
           cy="46"
@@ -499,7 +481,7 @@ export default function Canvas() {
           vectorEffect="non-scaling-stroke"
         />
 
-        {/* gallery oval outline is rendered as GalleryOval CSS div */}
+        {/* Gallery-Oval-Umriss  */}
       </BackgroundSVG>
 
       <Header>
@@ -514,14 +496,9 @@ export default function Canvas() {
           disabled={saveState === "saving" || strokeCount === 0}
           $error={saveState === "error"}
         >
-          <span
-            style={{
-              display: "inline-block",
-              transform: "rotate(-90deg) translateY(-10px)",
-            }}
-          >
+          <SaveLabel>
             {saveState === "saved" ? <RainbowText text="saved!" /> : saveLabel}
-          </span>
+          </SaveLabel>
         </SaveOval>
       </Header>
 

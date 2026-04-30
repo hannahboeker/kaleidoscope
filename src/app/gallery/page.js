@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styled from "styled-components";
 import { getUserId } from "@/lib/canvasHelpers";
 
@@ -46,20 +47,41 @@ const TopArea = styled.div`
   overflow: hidden;
 `;
 
-const ArchOval = styled.div`
-  position: absolute;
-  width: 160vw;
-  height: 500px;
+const ExpandedGalleryOval = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 100vh;
   border: 1.5px solid #000;
   border-radius: 50%;
-  top: 20px;
-  left: -30vw;
   pointer-events: none;
+  z-index: 0;
 `;
 
-const WorkspaceLink = styled(Link)`
-  position: absolute;
-  top: 18px;
+const WorkspaceButton = styled.button`
+  position: fixed;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52%;
+  min-width: 160px;
+  height: 60px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #000;
+  font-family: "Neumarkt", serif;
+  font-size: ${FONT_SIZE};
+  letter-spacing: 0.09em;
+  z-index: 2;
+  white-space: nowrap;
+`;
+
+const WorkspaceExpandingOval = styled.div`
+  position: fixed;
+  top: 5px;
   left: 50%;
   transform: translateX(-50%);
   width: 52%;
@@ -67,15 +89,16 @@ const WorkspaceLink = styled(Link)`
   height: 60px;
   border: 1.5px solid #000;
   border-radius: 50%;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  color: #000;
-  font-size: ${FONT_SIZE};
-  z-index: 2;
-  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
+
+  ${({ $expanding }) =>
+    $expanding &&
+    `
+    transition: height 0.7s ease-in-out, width 0.7s ease-in-out;
+    height: 92vh;
+    width: 138vw;
+  `}
 `;
 
 const SideOval = styled.button`
@@ -117,14 +140,33 @@ const EditOvalLink = styled(Link)`
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  transform: rotate(25deg);
+  transform: rotate(60deg);
   z-index: 3;
 `;
 
 const DeletedMsg = styled.p`
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
   text-align: center;
   font-size: ${FONT_SIZE};
-  padding: 12px 0 0;
+  color: #000;
+  z-index: 10;
+  white-space: nowrap;
+`;
+
+const DeleteLabel = styled.span`
+  display: inline-block;
+  transform: rotate(90deg);
+`;
+
+const EditSuffix = styled.span`
+  margin-left: -2px;
+`;
+
+const StatusPage = styled(Page)`
+  padding: 32px;
   color: #000;
 `;
 
@@ -147,7 +189,11 @@ const CardGrid = styled.div`
 `;
 
 const CardWrapper = styled.div`
-  transform: rotate(${({ $rotation }) => $rotation}deg);
+  transform: rotate(${({ $rotation }) => $rotation}deg)
+    scale(${({ $selected }) => ($selected ? 1.12 : 1)});
+  transition: transform 0.2s;
+  position: relative;
+  z-index: ${({ $selected }) => ($selected ? 10 : 0)};
 `;
 
 const Card = styled.div`
@@ -157,14 +203,9 @@ const Card = styled.div`
   aspect-ratio: 105 / 148;
   background: #f5f5f5;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: filter 0.2s;
 
-  ${({ $selected }) =>
-    $selected &&
-    `
-    border: 3px solid #000;
-    box-shadow: 0 0 0 2px #fff;
-  `}
+  ${({ $selected }) => $selected && `filter: invert(1);`}
 
   svg {
     width: 100%;
@@ -179,9 +220,17 @@ export default function GalleryPage() {
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [deletedMsg, setDeletedMsg] = useState(false);
+  const [expandingWorkspace, setExpandingWorkspace] = useState(false);
+  const router = useRouter();
+
+  const handleWorkspaceNav = () => {
+    setExpandingWorkspace(true);
+    setTimeout(() => router.push("/"), 700);
+  };
 
   async function handleDelete() {
     if (!selectedId) return;
+    if (!window.confirm("Are you sure you want to delete this?")) return;
     const idToDelete = selectedId;
     setSelectedId(null);
     setDesigns((prev) => prev.filter((d) => d._id !== idToDelete));
@@ -238,18 +287,25 @@ export default function GalleryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <Page style={{ padding: 32, color: "#000" }}>Loading...</Page>;
-  if (error) return <Page style={{ padding: 32, color: "#000" }}>{error}</Page>;
+  if (loading) return <StatusPage>Loading...</StatusPage>;
+  if (error) return <StatusPage>{error}</StatusPage>;
 
   return (
     <Page>
       <TopArea>
-        <ArchOval />
-        <WorkspaceLink href="/">workspace</WorkspaceLink>
+        <ExpandedGalleryOval />
+        <WorkspaceButton onClick={handleWorkspaceNav}>
+          workspace
+        </WorkspaceButton>
+        <WorkspaceExpandingOval $expanding={expandingWorkspace} />
         {selectedId && (
           <>
-            <DeleteOval onClick={handleDelete}>delete</DeleteOval>
-            <EditOvalLink href={`/?id=${selectedId}`}>edit</EditOvalLink>
+            <DeleteOval onClick={handleDelete}>
+              <DeleteLabel>delete</DeleteLabel>
+            </DeleteOval>
+            <EditOvalLink href={`/?id=${selectedId}`}>
+              e<EditSuffix>dit</EditSuffix>
+            </EditOvalLink>
           </>
         )}
       </TopArea>
@@ -268,6 +324,7 @@ export default function GalleryPage() {
             <CardWrapper
               key={design._id}
               $rotation={ROTATIONS[i % ROTATIONS.length]}
+              $selected={selectedId === design._id}
             >
               <Card
                 $selected={selectedId === design._id}

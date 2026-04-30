@@ -39,8 +39,10 @@ export async function POST(request) {
     // S.2 Rückseiten-SVG laden, Platzhalterfarben ersetzen
     const backSvgPath = path.join(process.cwd(), "public", "postcard-back.svg");
     let backSvg = await readFile(backSvgPath, "utf-8");
-    backSvg = backSvg.replaceAll(SVG_COLOR_PRIMARY, strokeColor);
-    backSvg = backSvg.replaceAll(SVG_COLOR_SECONDARY, bgColor);
+    const backPrimary = strokeColor === "#ffffff" ? bgColor : strokeColor;
+    const backSecondary = bgColor === "#ffffff" ? strokeColor : bgColor;
+    backSvg = backSvg.replaceAll(SVG_COLOR_PRIMARY, backPrimary);
+    backSvg = backSvg.replaceAll(SVG_COLOR_SECONDARY, backSecondary);
     // viewBox auf den tatsächlichen Inhalt zuschneiden (SVG-Canvas hat sonst große Ränder)
     backSvg = backSvg.replace(
       /viewBox="[^"]*"/,
