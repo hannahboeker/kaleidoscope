@@ -1,113 +1,259 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import p5 from "p5";
 import styled from "styled-components";
-import Link from "next/link";
 import {
-  BREAKPOINT,
-  RATIO_LANDSCAPE,
-  RATIO_PORTRAIT,
   SYMMETRY,
   BG_COLOR,
   STROKE_COLOR,
   STROKE_WEIGHT,
+  HEADER_HEIGHT,
+  FOOTER_HEIGHT,
   getSize,
   buildSVG,
   drawStrokeSymmetric,
-  generateUUID,
   getUserId,
 } from "@/lib/canvasHelpers";
 
-const Wrapper = styled.div`
+const RAINBOW = [
+  "#e63535",
+  "#ff8c00",
+  "#ffe100",
+  "#00c853",
+  "#00bcd4",
+  "#1e88e5",
+  "#e91e63",
+  "#9c27b0",
+];
+
+const RAINBOW_EXPORT = [
+  "#e63535",
+  "#ff8c00",
+  "#c4a000",
+  "#00c853",
+  "#00bcd4",
+  "#1e88e5",
+  "#e91e63",
+  "#9c27b0",
+];
+
+const FONT_SIZE = "30px";
+//.split um einzelne Buchstaben zu färben // Wenn index größer als array beginn von vorne
+function RainbowText({ text, colors = RAINBOW }) {
+  return (
+    <>
+      {text.split("").map((char, i) => (
+        <span key={i} style={{ color: colors[i % colors.length] }}>
+          {char === " " ? " " : char}
+        </span>
+      ))}
+    </>
+  );
+}
+
+//BackgroundSVG orientiert sich absolut hier dran, scrollen ausstellen
+const PageWrapper = styled.div`
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: #000;
+  font-family: "Neumarkt", serif;
+  position: relative;
+`;
+
+//hinter allem, weiße ovale und schnittmenge
+const BackgroundSVG = styled.svg`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+`;
+
+const Header = styled.header`
+  height: ${HEADER_HEIGHT}px;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
   align-items: center;
   justify-content: center;
-  box-sizing: border-box;
-  padding: 32px;
+  z-index: 1;
 `;
 
-const Controls = styled.div`
+const TitleOval = styled.div`
+  position: fixed;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 68%;
+  height: 130px;
+  border: 1.5px solid white;
+  border-radius: 50%;
   display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
-  width: 100%;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 30px;
+  font-size: ${FONT_SIZE};
+  z-index: 2;
 `;
 
-// Basis-Button Styling, wird von UndoButton und SaveButton geteilt
-const Button = styled.button`
-  padding: 8px 20px;
+//Basis für Button
+const SideOval = styled.button`
+  position: fixed;
+  width: 56px;
+  height: 86px;
+  border: 1.5px solid white;
+  border-radius: 50%;
   background: transparent;
-  border: 3px solid #15ff00;
-  color: #15ff00;
-  border-radius: 20px;
+  color: white;
   cursor: pointer;
-  font-size: 13px;
-  transition:
-    border-color 0.2s,
-    color 0.2s;
-  &:hover {
-    border-color: rgb(234, 255, 0);
-  }
+  font-family: "Neumarkt", serif;
+  font-size: ${FONT_SIZE};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+
   &:disabled {
-    opacity: 0.3;
     cursor: default;
   }
 `;
 
-const UndoButton = styled(Button)``;
-
-// SaveButton färbt sich grün wenn gespeichert
-// $ Präfix verhindert dass $saved ans DOM weitergegeben wird
-const SaveButton = styled(Button)`
-  border-color: ${({ $saved }) => ($saved ? "#0040ff" : "#ff4d00")};
-  color: ${({ $saved }) => ($saved ? "#0040ff" : "#ff4d00")};
+const UndoOval = styled(SideOval)`
+  top: 25px;
+  left: 3%;
+  transform: rotate(-30deg);
 `;
 
-const CanvasWrapper = styled.div`
+const SaveOval = styled(SideOval)`
+  top: 30px;
+  right: 30px;
+  transform: rotate(150deg);
+  ${({ $error }) => $error && `border-color: #e63535; color: #e63535;`}
+`;
+
+const SaveLabel = styled.span`
+  display: inline-block;
+  transform: rotate(-90deg) translateY(-10px);
+`;
+
+// Canvas in der Mitte, p5-Element verdeckt SVG dahinter
+const CanvasSection = styled.main`
+  flex: 1;
+  min-height: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  padding-bottom: 30px;
 `;
 
-//___________________________________________________________________________________________________________
+const Footer = styled.footer`
+  height: ${FOOTER_HEIGHT}px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+`;
+
+// position: fixed immer am SVG ausgerichtet, unabhängig von Canvas-Größe
+const ExportButton = styled.button`
+  position: fixed;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: "Neumarkt", serif;
+  font-size: ${FONT_SIZE};
+  z-index: 2;
+  white-space: nowrap;
+
+  &:disabled {
+    cursor: default;
+  }
+`;
+
+const GalleryButton = styled.button`
+  position: fixed;
+  bottom: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: white;
+  font-family: "Neumarkt", serif;
+  font-size: ${FONT_SIZE};
+  z-index: 2;
+  white-space: nowrap;
+  letter-spacing: 0.09em;
+`;
+
+// //expanding nicht an DOM, wenn true animatiionstartet
+const GalleryOval = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 85vw;
+  height: 14vh;
+  border: 1.5px solid white;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+
+  ${({ $expanding }) =>
+    $expanding &&
+    `
+    transition: height 0.7s ease-in-out, width 0.7s ease-in-out;
+    height: 100vh;
+    width: 100vw;
+  `}
+`;
+
 export default function Canvas() {
-  const containerRef = useRef(null); // DOM-Element wo p5 den Canvas reinzeichnet
-  const p5Ref = useRef(null); // p5-Instanz für handleUndo
-  const strokesRef = useRef([]); // Linien | Ref weil p5 drauf zugreift
-  const [strokeCount, setStrokeCount] = useState(0); // nur für undo-Button
+  const containerRef = useRef(null);
+  const p5Ref = useRef(null);
+  const strokesRef = useRef([]);
+  const [strokeCount, setStrokeCount] = useState(0);
   const [saveState, setSaveState] = useState("idle");
-  //useSearchParams statt window.location.search weil raktiv, auch bei Client-Side-Navigation.
-  // Sonst wenn editbutton klickt schwarzer canvas und erst bei reload sichtbar
+  const [expanding, setExpanding] = useState(false);
   const searchParams = useSearchParams();
   const designId = searchParams.get("id");
+  const router = useRouter();
 
-  const redrawStrokes = useCallback((p) => {
-    p.background(BG_COLOR);
-    p.push();
-    p.translate(p.width / 2, p.height / 2); // Ursprung = Canvas-Mitte
-    p.angleMode(p.DEGREES);
-    strokesRef.current.forEach((stroke) => drawStrokeSymmetric(p, stroke));
-    p.pop();
+  //TODO:Timing noch verbessern? löst nach 700ms aus
+  const handleGalleryNav = () => {
+    setExpanding(true);
+    setTimeout(() => router.push("/gallery"), 700);
+  };
+
+  const redrawStrokes = useCallback((sketch) => {
+    sketch.background(BG_COLOR);
+    sketch.push();
+    sketch.translate(sketch.width / 2, sketch.height / 2);
+    sketch.angleMode(sketch.DEGREES);
+    strokesRef.current.forEach((stroke) => drawStrokeSymmetric(sketch, stroke));
+    sketch.pop();
   }, []);
 
-  // EDIT BUTTON FETCH / Fetch läuft async — p5 fertig wenn Callback aufgerufen
   useEffect(() => {
     if (!designId) return;
-
-    // wenn designID gesetzt, Strokes geladen und in strokesRef.current,
     const userId = getUserId();
     fetch(`/api/design/${designId}?userId=${userId}`)
       .then((res) => res.json())
       .then((data) => {
         strokesRef.current = data.design?.strokes ?? [];
         setStrokeCount(strokesRef.current.length);
-        // requestAnimationFrame damit erst p5 eigenener Start-zyklus abgeschlossen ist und dann redrawt wird
-        // sonst könnte p5 Canvas danach löschen durch initial setup
         requestAnimationFrame(() => {
           if (p5Ref.current && strokesRef.current.length > 0) {
             redrawStrokes(p5Ref.current);
@@ -117,99 +263,91 @@ export default function Canvas() {
       .catch((err) => console.error("loading design failed:", err));
   }, [designId, redrawStrokes]);
 
-  // Canvas setup
   useEffect(() => {
     if (p5Ref.current) return;
 
-    const sketch = (p) => {
+    const sketchDefinition = (sketch) => {
       let currentStroke = [];
       let isDrawing = false;
 
-      p.setup = () => {
-        const { w, h } = getSize();
-
-        const cnv = p.createCanvas(w, h);
-        cnv.style("display", "block");
-        p.background(BG_COLOR);
-        p.strokeCap(p.ROUND);
-        p.angleMode(p.DEGREES);
-        p.noLoop();
-        //Saftey Fallback falls strokes schon vor setup geladen
-        if (strokesRef.current.length > 0) redrawStrokes(p);
+      sketch.setup = () => {
+        const { width, height } = getSize();
+        const canvasElement = sketch.createCanvas(width, height);
+        canvasElement.style("display", "block");
+        sketch.background(BG_COLOR);
+        sketch.strokeCap(sketch.ROUND);
+        sketch.angleMode(sketch.DEGREES);
+        sketch.noLoop();
+        if (strokesRef.current.length > 0) redrawStrokes(sketch);
       };
 
-      p.windowResized = () => {
-        const { w, h } = getSize();
-        p.resizeCanvas(w, h);
-        redrawStrokes(p);
+      sketch.windowResized = () => {
+        const { width, height } = getSize();
+        sketch.resizeCanvas(width, height);
+        redrawStrokes(sketch);
       };
 
-      p.mousePressed = () => {
+      sketch.mousePressed = () => {
         if (
-          p.mouseX < 0 ||
-          p.mouseX > p.width ||
-          p.mouseY < 0 ||
-          p.mouseY > p.height
+          sketch.mouseX < 0 ||
+          sketch.mouseX > sketch.width ||
+          sketch.mouseY < 0 ||
+          sketch.mouseY > sketch.height
         )
           return;
         isDrawing = true;
-
-        const scale = Math.max(p.width, p.height) / 2;
-
+        const scale = Math.max(sketch.width, sketch.height) / 2;
         currentStroke = [
           {
-            x: (p.mouseX - p.width / 2) / scale,
-            y: (p.mouseY - p.height / 2) / scale,
+            x: (sketch.mouseX - sketch.width / 2) / scale,
+            y: (sketch.mouseY - sketch.height / 2) / scale,
           },
         ];
       };
 
-      p.mouseDragged = () => {
+      sketch.mouseDragged = () => {
         if (!isDrawing) return;
         if (
-          p.mouseX < 0 ||
-          p.mouseX > p.width ||
-          p.mouseY < 0 ||
-          p.mouseY > p.height
+          sketch.mouseX < 0 ||
+          sketch.mouseX > sketch.width ||
+          sketch.mouseY < 0 ||
+          sketch.mouseY > sketch.height
         )
           return;
-
-        const scale = Math.max(p.width, p.height) / 2;
-
+        const scale = Math.max(sketch.width, sketch.height) / 2;
         const prev = currentStroke[currentStroke.length - 1];
         const point = {
-          x: (p.mouseX - p.width / 2) / scale,
-          y: (p.mouseY - p.height / 2) / scale,
+          x: (sketch.mouseX - sketch.width / 2) / scale,
+          y: (sketch.mouseY - sketch.height / 2) / scale,
         };
         currentStroke.push(point);
-
-        p.push();
-        p.translate(p.width / 2, p.height / 2);
+        sketch.push();
+        sketch.translate(sketch.width / 2, sketch.height / 2);
         const angleStep = 360 / SYMMETRY;
-        for (let s = 0; s < SYMMETRY; s++) {
-          p.push();
-          p.rotate(angleStep * s);
-          p.stroke(STROKE_COLOR);
-          p.strokeWeight(STROKE_WEIGHT);
-          p.line(
+        for (let symmetryIndex = 0; symmetryIndex < SYMMETRY; symmetryIndex++) {
+          sketch.push();
+          sketch.rotate(angleStep * symmetryIndex);
+          sketch.stroke(STROKE_COLOR);
+          sketch.strokeWeight(STROKE_WEIGHT);
+          sketch.line(
             prev.x * scale,
             prev.y * scale,
             point.x * scale,
             point.y * scale,
           );
-          p.scale(1, -1);
-          p.line(
+          sketch.scale(1, -1);
+          sketch.line(
             prev.x * scale,
             prev.y * scale,
             point.x * scale,
             point.y * scale,
           );
-          p.pop();
+          sketch.pop();
         }
-        p.pop();
+        sketch.pop();
       };
 
-      p.mouseReleased = () => {
+      sketch.mouseReleased = () => {
         if (!isDrawing || currentStroke.length < 2) {
           isDrawing = false;
           currentStroke = [];
@@ -221,10 +359,10 @@ export default function Canvas() {
         currentStroke = [];
       };
 
-      p.touchMoved = () => false;
+      sketch.touchMoved = () => false;
     };
 
-    const instance = new p5(sketch, containerRef.current);
+    const instance = new p5(sketchDefinition, containerRef.current);
     p5Ref.current = instance;
 
     return () => {
@@ -237,7 +375,6 @@ export default function Canvas() {
     try {
       const canvas = p5Ref.current;
       const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
-
       const response = await fetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -247,9 +384,10 @@ export default function Canvas() {
           strokeColor: STROKE_COLOR,
         }),
       });
-
-      if (!response.ok) throw new Error("Export failed");
-
+      if (!response.ok) {
+        console.error("Export failed");
+        return;
+      }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const downloadLink = document.createElement("a");
@@ -266,22 +404,18 @@ export default function Canvas() {
     if (strokesRef.current.length === 0) return;
     strokesRef.current.pop();
     setStrokeCount(strokesRef.current.length);
-    const p = p5Ref.current;
-    if (!p) return;
-    redrawStrokes(p);
+    const canvas = p5Ref.current;
+    if (!canvas) return;
+    redrawStrokes(canvas);
   };
 
-  //__________________________________________________________________________;
-  // SVG aus Strokes bauen / mit userId an API schicken / Feedback anzeigen
   const handleSave = async () => {
     if (strokesRef.current.length === 0) return;
     setSaveState("saving");
-
     try {
-      const p = p5Ref.current;
-      const userId = getUserId(); // UUID aus localStorage oder neu generieren
-      const svg = buildSVG(strokesRef.current, p.width, p.height);
-
+      const canvas = p5Ref.current;
+      const userId = getUserId();
+      const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
       const response = designId
         ? await fetch(`/api/design/${designId}?userId=${userId}`, {
             method: "PUT",
@@ -298,11 +432,9 @@ export default function Canvas() {
               symmetry: SYMMETRY,
             }),
           });
-
-      if (!response.ok) throw new Error("Speichern fehlgeschlagen");
-
+      if (!response.ok) throw new Error("save failed");
       setSaveState("saved");
-      setTimeout(() => setSaveState("idle"), 2000); // Nach 2s zurück zu idle (Leerraum, nichtsmachen)
+      setTimeout(() => setSaveState("idle"), 2000);
     } catch (err) {
       console.error(err);
       setSaveState("error");
@@ -310,34 +442,79 @@ export default function Canvas() {
     }
   };
 
+  const saveLabel = {
+    saving: "saving...",
+    saved: "",
+    error: "error",
+    idle: "save",
+  }[saveState];
+
   return (
-    <Wrapper>
-      <CanvasWrapper>
+    <PageWrapper>
+      {/* SVG wird auf Bildschrimgröße gestrckt mit preserveAspectRatio="none", Koordinate 50 = 50% Viewport, X/Y skalieren unabhängig */}
+      <BackgroundSVG viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <clipPath id="gallery-clip">
+            <ellipse cx="50" cy="93" rx="43" ry="7" />
+          </clipPath>
+        </defs>
+
+        {/* weiße Linse — Schnittfläche der zwei Ovale, ergibt weißen Bereich für export */}
+        <ellipse
+          cx="50"
+          cy="46"
+          rx="69"
+          ry="46"
+          fill="white"
+          clipPath="url(#gallery-clip)"
+        />
+
+        {/* großes Oval, Umriss  */}
+        <ellipse
+          cx="50"
+          cy="46"
+          rx="69"
+          ry="46"
+          fill="none"
+          stroke="white"
+          strokeWidth="1.5"
+          vectorEffect="non-scaling-stroke"
+        />
+
+        {/* Gallery-Oval-Umriss  */}
+      </BackgroundSVG>
+
+      <Header>
+        <TitleOval>
+          <RainbowText text="kaleidoscope" />
+        </TitleOval>
+        <UndoOval onClick={handleUndo} disabled={strokeCount === 0}>
+          undo
+        </UndoOval>
+        <SaveOval
+          onClick={handleSave}
+          disabled={saveState === "saving" || strokeCount === 0}
+          $error={saveState === "error"}
+        >
+          <SaveLabel>
+            {saveState === "saved" ? <RainbowText text="saved!" /> : saveLabel}
+          </SaveLabel>
+        </SaveOval>
+      </Header>
+
+      <CanvasSection>
         <div ref={containerRef} />
-        <Controls>
-          <SaveButton
-            onClick={handleSave}
-            disabled={saveState === "saving" || strokeCount === 0}
-            $saved={saveState === "saved"}
-          >
-            {/* Buttontext je state*/}
-            {saveState === "saving" && "saving..."}
-            {saveState === "saved" && "saved ✓"}
-            {saveState === "error" && "error — retry"}
-            {saveState === "idle" && "save"}
-          </SaveButton>
-          {/* wenn keine strokes gezählt, button disabled */}
-          <Button as={Link} href="/gallery">
-            gallery
-          </Button>
-          <Button onClick={handleExport} disabled={strokeCount === 0}>
-            export pdf
-          </Button>
-          <UndoButton onClick={handleUndo} disabled={strokeCount === 0}>
-            undo
-          </UndoButton>
-        </Controls>
-      </CanvasWrapper>
-    </Wrapper>
+      </CanvasSection>
+
+      <Footer />
+
+      <GalleryOval $expanding={expanding} />
+
+      <ExportButton onClick={handleExport} disabled={strokeCount === 0}>
+        <RainbowText text="export" colors={RAINBOW_EXPORT} />
+      </ExportButton>
+
+      <GalleryButton onClick={handleGalleryNav}>gallery</GalleryButton>
+    </PageWrapper>
   );
 }

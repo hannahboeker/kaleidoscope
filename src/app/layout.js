@@ -1,4 +1,5 @@
 import "./globals.css";
+import StyledComponentsRegistry from "../lib/registry";
 
 export const metadata = {
   title: "kaleidoscope",
@@ -8,7 +9,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <StyledComponentsRegistry>{children}</StyledComponentsRegistry>
+      </body>
     </html>
   );
 }

@@ -3,19 +3,18 @@ export const BREAKPOINT = 1024;
 export const RATIO_LANDSCAPE = 148 / 105;
 export const RATIO_PORTRAIT = 105 / 148;
 export const SYMMETRY = 3;
-export const BG_COLOR = "#1e0035";
-export const STROKE_COLOR = "#00ff66";
+export const BG_COLOR = "#ffffff";
+export const STROKE_COLOR = "#0800ff";
 export const STROKE_WEIGHT = 3;
+export const HEADER_HEIGHT = 130;
+export const FOOTER_HEIGHT = 160;
 
 // Größe Postkarte
 export function getSize() {
   const portrait = window.innerWidth <= BREAKPOINT;
   const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT;
-  const padding = 64; // 32px pro Seite
-  const controlsHeight = 48;
-
-  const availableW = window.innerWidth - padding;
-  const availableH = window.innerHeight - padding - controlsHeight;
+  const availableW = window.innerWidth;
+  const availableH = window.innerHeight - HEADER_HEIGHT - FOOTER_HEIGHT;
 
   let width = availableW;
   let height;
@@ -39,7 +38,7 @@ export function getSize() {
     }
   }
 
-  return { w: Math.floor(width), h: Math.floor(height) };
+  return { width: Math.floor(width), height: Math.floor(height) };
 }
 
 // Baut aus gespeicherten Strokes SVG-String
