@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import p5 from "p5";
 import styled from "styled-components";
-import Link from "next/link";
 import {
   SYMMETRY,
   BG_COLOR,
@@ -42,11 +41,11 @@ const RAINBOW_EXPORT = [
 
 const FONT_SIZE = "30px";
 
-function RainbowText({ text }) {
+function RainbowText({ text, colors = RAINBOW }) {
   return (
     <>
       {text.split("").map((char, i) => (
-        <span key={i} style={{ color: RAINBOW[i % RAINBOW.length] }}>
+        <span key={i} style={{ color: colors[i % colors.length] }}>
           {char === " " ? " " : char}
         </span>
       ))}
@@ -155,7 +154,6 @@ const SaveOval = styled(SideOval)`
   top: 30px;
   right: 30px;
   transform: rotate(150deg);
-  ${({ $saved }) => $saved && `border-color: #00c853; color: #00c853;`}
   ${({ $error }) => $error && `border-color: #e63535; color: #e63535;`}
 `;
 
@@ -203,17 +201,20 @@ const ExportButton = styled.button`
   }
 `;
 
-const GalleryLink = styled(Link)`
+const GalleryButton = styled.button`
   position: fixed;
   bottom: 3%;
   left: 50%;
   transform: translateX(-50%);
-  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
   color: white;
   font-family: "Neumarkt", serif;
   font-size: ${FONT_SIZE};
   z-index: 2;
   white-space: nowrap;
+  letter-spacing: 0.09em;
 `;
 
 /* CSS-Oval für den gallery-Kreis: Unterkante liegt auf der Bildschirmkante unten,
@@ -229,6 +230,14 @@ const GalleryOval = styled.div`
   border-radius: 50%;
   pointer-events: none;
   z-index: 1;
+
+  ${({ $expanding }) =>
+    $expanding &&
+    `
+    transition: height 0.7s ease-in-out, width 0.7s ease-in-out;
+    height: 100vh;
+    width: 100vw;
+  `}
 `;
 
 export default function Canvas() {
@@ -237,16 +246,23 @@ export default function Canvas() {
   const strokesRef = useRef([]);
   const [strokeCount, setStrokeCount] = useState(0);
   const [saveState, setSaveState] = useState("idle");
+  const [expanding, setExpanding] = useState(false);
   const searchParams = useSearchParams();
   const designId = searchParams.get("id");
+  const router = useRouter();
 
-  const redrawStrokes = useCallback((p) => {
-    p.background(BG_COLOR);
-    p.push();
-    p.translate(p.width / 2, p.height / 2);
-    p.angleMode(p.DEGREES);
-    strokesRef.current.forEach((stroke) => drawStrokeSymmetric(p, stroke));
-    p.pop();
+  const handleGalleryNav = () => {
+    setExpanding(true);
+    setTimeout(() => router.push("/gallery"), 700);
+  };
+
+  const redrawStrokes = useCallback((sketch) => {
+    sketch.background(BG_COLOR);
+    sketch.push();
+    sketch.translate(sketch.width / 2, sketch.height / 2);
+    sketch.angleMode(sketch.DEGREES);
+    strokesRef.current.forEach((stroke) => drawStrokeSymmetric(sketch, stroke));
+    sketch.pop();
   }, []);
 
   useEffect(() => {
@@ -269,88 +285,88 @@ export default function Canvas() {
   useEffect(() => {
     if (p5Ref.current) return;
 
-    const sketch = (p) => {
+    const sketchDefinition = (sketch) => {
       let currentStroke = [];
       let isDrawing = false;
 
-      p.setup = () => {
-        const { w, h } = getSize();
-        const cnv = p.createCanvas(w, h);
-        cnv.style("display", "block");
-        p.background(BG_COLOR);
-        p.strokeCap(p.ROUND);
-        p.angleMode(p.DEGREES);
-        p.noLoop();
-        if (strokesRef.current.length > 0) redrawStrokes(p);
+      sketch.setup = () => {
+        const { width, height } = getSize();
+        const canvasElement = sketch.createCanvas(width, height);
+        canvasElement.style("display", "block");
+        sketch.background(BG_COLOR);
+        sketch.strokeCap(sketch.ROUND);
+        sketch.angleMode(sketch.DEGREES);
+        sketch.noLoop();
+        if (strokesRef.current.length > 0) redrawStrokes(sketch);
       };
 
-      p.windowResized = () => {
-        const { w, h } = getSize();
-        p.resizeCanvas(w, h);
-        redrawStrokes(p);
+      sketch.windowResized = () => {
+        const { width, height } = getSize();
+        sketch.resizeCanvas(width, height);
+        redrawStrokes(sketch);
       };
 
-      p.mousePressed = () => {
+      sketch.mousePressed = () => {
         if (
-          p.mouseX < 0 ||
-          p.mouseX > p.width ||
-          p.mouseY < 0 ||
-          p.mouseY > p.height
+          sketch.mouseX < 0 ||
+          sketch.mouseX > sketch.width ||
+          sketch.mouseY < 0 ||
+          sketch.mouseY > sketch.height
         )
           return;
         isDrawing = true;
-        const scale = Math.max(p.width, p.height) / 2;
+        const scale = Math.max(sketch.width, sketch.height) / 2;
         currentStroke = [
           {
-            x: (p.mouseX - p.width / 2) / scale,
-            y: (p.mouseY - p.height / 2) / scale,
+            x: (sketch.mouseX - sketch.width / 2) / scale,
+            y: (sketch.mouseY - sketch.height / 2) / scale,
           },
         ];
       };
 
-      p.mouseDragged = () => {
+      sketch.mouseDragged = () => {
         if (!isDrawing) return;
         if (
-          p.mouseX < 0 ||
-          p.mouseX > p.width ||
-          p.mouseY < 0 ||
-          p.mouseY > p.height
+          sketch.mouseX < 0 ||
+          sketch.mouseX > sketch.width ||
+          sketch.mouseY < 0 ||
+          sketch.mouseY > sketch.height
         )
           return;
-        const scale = Math.max(p.width, p.height) / 2;
+        const scale = Math.max(sketch.width, sketch.height) / 2;
         const prev = currentStroke[currentStroke.length - 1];
         const point = {
-          x: (p.mouseX - p.width / 2) / scale,
-          y: (p.mouseY - p.height / 2) / scale,
+          x: (sketch.mouseX - sketch.width / 2) / scale,
+          y: (sketch.mouseY - sketch.height / 2) / scale,
         };
         currentStroke.push(point);
-        p.push();
-        p.translate(p.width / 2, p.height / 2);
+        sketch.push();
+        sketch.translate(sketch.width / 2, sketch.height / 2);
         const angleStep = 360 / SYMMETRY;
-        for (let s = 0; s < SYMMETRY; s++) {
-          p.push();
-          p.rotate(angleStep * s);
-          p.stroke(STROKE_COLOR);
-          p.strokeWeight(STROKE_WEIGHT);
-          p.line(
+        for (let symmetryIndex = 0; symmetryIndex < SYMMETRY; symmetryIndex++) {
+          sketch.push();
+          sketch.rotate(angleStep * symmetryIndex);
+          sketch.stroke(STROKE_COLOR);
+          sketch.strokeWeight(STROKE_WEIGHT);
+          sketch.line(
             prev.x * scale,
             prev.y * scale,
             point.x * scale,
             point.y * scale,
           );
-          p.scale(1, -1);
-          p.line(
+          sketch.scale(1, -1);
+          sketch.line(
             prev.x * scale,
             prev.y * scale,
             point.x * scale,
             point.y * scale,
           );
-          p.pop();
+          sketch.pop();
         }
-        p.pop();
+        sketch.pop();
       };
 
-      p.mouseReleased = () => {
+      sketch.mouseReleased = () => {
         if (!isDrawing || currentStroke.length < 2) {
           isDrawing = false;
           currentStroke = [];
@@ -362,10 +378,10 @@ export default function Canvas() {
         currentStroke = [];
       };
 
-      p.touchMoved = () => false;
+      sketch.touchMoved = () => false;
     };
 
-    const instance = new p5(sketch, containerRef.current);
+    const instance = new p5(sketchDefinition, containerRef.current);
     p5Ref.current = instance;
 
     return () => {
@@ -375,46 +391,50 @@ export default function Canvas() {
   }, [redrawStrokes]);
 
   const handleExport = async () => {
-    const p = p5Ref.current;
-    const svg = buildSVG(strokesRef.current, p.width, p.height);
-    const response = await fetch("/api/export", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        svg,
-        bgColor: BG_COLOR,
-        strokeColor: STROKE_COLOR,
-      }),
-    });
-    if (!response.ok) {
-      console.error("Export failed");
-      return;
+    try {
+      const canvas = p5Ref.current;
+      const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          svg,
+          bgColor: BG_COLOR,
+          strokeColor: STROKE_COLOR,
+        }),
+      });
+      if (!response.ok) {
+        console.error("Export failed");
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = url;
+      downloadLink.download = "kaleidoscope-postcard.pdf";
+      downloadLink.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
     }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "kaleidoscope-postcard.pdf";
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleUndo = () => {
     if (strokesRef.current.length === 0) return;
     strokesRef.current.pop();
     setStrokeCount(strokesRef.current.length);
-    const p = p5Ref.current;
-    if (!p) return;
-    redrawStrokes(p);
+    const canvas = p5Ref.current;
+    if (!canvas) return;
+    redrawStrokes(canvas);
   };
 
   const handleSave = async () => {
     if (strokesRef.current.length === 0) return;
     setSaveState("saving");
     try {
-      const p = p5Ref.current;
+      const canvas = p5Ref.current;
       const userId = getUserId();
-      const svg = buildSVG(strokesRef.current, p.width, p.height);
+      const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
       const response = designId
         ? await fetch(`/api/design/${designId}?userId=${userId}`, {
             method: "PUT",
@@ -443,30 +463,13 @@ export default function Canvas() {
 
   const saveLabel = {
     saving: "saving...",
-    saved: "saved ✓",
+    saved: "",
     error: "error",
     idle: "save",
   }[saveState];
 
   return (
     <PageWrapper>
-      {/*
-        Full-page SVG: two ovals sharing the same coordinate space.
-        viewBox 0 0 100 100 with preserveAspectRatio="none":
-          x 0–100 = 0–100% viewport width
-          y 0–100 = 0–100% viewport height
-
-        Large oval (rx=69 → sides go off-screen, ry=50 = half viewport height):
-          top at y=0, bottom at y=100.
-          Appears as arch at the header top and again at the footer bottom.
-
-        Gallery oval (cx=50, cy=104, rx=46, ry=12):
-          top at y=92, center 4% below screen.
-          Only its upper arc is visible in the footer.
-
-        clipPath "gallery-clip" = gallery oval shape.
-        Applied to the large oval → fills only the intersection white.
-      */}
       <BackgroundSVG viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
           <clipPath id="gallery-clip">
@@ -509,7 +512,6 @@ export default function Canvas() {
         <SaveOval
           onClick={handleSave}
           disabled={saveState === "saving" || strokeCount === 0}
-          $saved={saveState === "saved"}
           $error={saveState === "error"}
         >
           <span
@@ -518,7 +520,7 @@ export default function Canvas() {
               transform: "rotate(-90deg) translateY(-10px)",
             }}
           >
-            {saveLabel}
+            {saveState === "saved" ? <RainbowText text="saved!" /> : saveLabel}
           </span>
         </SaveOval>
       </Header>
@@ -529,13 +531,13 @@ export default function Canvas() {
 
       <Footer />
 
-      <GalleryOval />
+      <GalleryOval $expanding={expanding} />
 
       <ExportButton onClick={handleExport} disabled={strokeCount === 0}>
-        <RainbowText text="export" />
+        <RainbowText text="export" colors={RAINBOW_EXPORT} />
       </ExportButton>
 
-      <GalleryLink href="/gallery">gallery</GalleryLink>
+      <GalleryButton onClick={handleGalleryNav}>gallery</GalleryButton>
     </PageWrapper>
   );
 }

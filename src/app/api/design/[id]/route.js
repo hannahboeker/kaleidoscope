@@ -2,7 +2,6 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Design from "@/models/Design";
 
 //GET + PUT für edit Button // GET hol EIN Bild aus mongodb, PUT überschreibt bestehendes Design
-
 export async function GET(request, { params }) {
   try {
     await connectToDatabase();
