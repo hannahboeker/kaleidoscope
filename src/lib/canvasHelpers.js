@@ -85,8 +85,8 @@ export function buildSVG(strokes, canvasW, canvasH, bgColor = BG_COLOR) {
       return result;
     })
     .join("\n");
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}" style="background:${bgColor}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}">
+<rect width="100%" height="100%" fill="${bgColor}"/>
 ${paths}
 </svg>`;
 }
@@ -115,6 +115,7 @@ export function getUserId() {
 // Zeichnet einen einzelnen Strich mit allen Symmetrie-Kopien.
 // Wird beim Live-Zeichnen und beim Redraw (Undo/Resize) verwendet.
 export function drawStrokeSymmetric(sketch, stroke) {
+  // Prüfen ob array ist, weil alte daten ja noch als array gespeichert. Sonst crash wenn alte array daten rein laden
   const points = Array.isArray(stroke) ? stroke : stroke.points;
   const color = Array.isArray(stroke) ? STROKE_COLOR : stroke.color;
 

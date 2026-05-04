@@ -73,6 +73,14 @@ const BackgroundSVG = styled.svg`
   height: 100%;
   pointer-events: none;
   z-index: 0;
+  transform-origin: top center;
+
+  ${({ $shrinking }) =>
+    $shrinking &&
+    `
+    transition: transform 0.7s ease-in-out;
+    transform: scaleY(0);
+  `}
 `;
 
 const Header = styled.header`
@@ -106,8 +114,8 @@ const TitleOval = styled.div`
 //Basis für Button
 const SideOval = styled.button`
   position: fixed;
-  width: 56px;
-  height: 86px;
+  width: 66px;
+  height: 100px;
   border: 1.5px solid white;
   border-radius: 50%;
   background: transparent;
@@ -141,6 +149,8 @@ const SaveOval = styled(SideOval)`
 const SaveLabel = styled.span`
   display: inline-block;
   transform: rotate(-90deg) translateY(-10px);
+  width: 80px;
+  text-align: center;
 `;
 
 // Canvas in der Mitte, p5-Element verdeckt SVG dahinter
@@ -521,7 +531,11 @@ export default function Canvas() {
   return (
     <PageWrapper>
       {/* SVG wird auf Bildschrimgröße gestrckt mit preserveAspectRatio="none", Koordinate 50 = 50% Viewport, X/Y skalieren unabhängig */}
-      <BackgroundSVG viewBox="0 0 100 100" preserveAspectRatio="none">
+      <BackgroundSVG
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        $shrinking={expanding}
+      >
         <defs>
           <clipPath id="gallery-clip">
             <ellipse cx="50" cy="93" rx="43" ry="7" />
