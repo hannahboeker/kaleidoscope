@@ -326,8 +326,21 @@ export default function Canvas() {
       .then((res) => res.json())
       .then((data) => {
         const rawStrokes = data.design?.strokes ?? [];
+        //hier Stroke Arrays in neue Objket Form umwandeln
         strokesRef.current = rawStrokes.map((s) =>
-          Array.isArray(s) ? { points: s, color: STROKE_COLOR } : s,
+          Array.isArray(s)
+            ? {
+                points: s,
+                color: STROKE_COLOR,
+                type: "normal",
+                size: STROKE_WEIGHT,
+              }
+            : {
+                points: s.points ?? [],
+                color: s.color ?? STROKE_COLOR,
+                type: s.type ?? "normal",
+                size: s.size ?? STROKE_WEIGHT,
+              },
         );
         const loadedBgColor = data.design?.bgColor ?? BG_COLOR;
         setBgColor(loadedBgColor);

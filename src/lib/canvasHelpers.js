@@ -49,19 +49,21 @@ export function buildSVG(strokes, canvasW, canvasH, bgColor = BG_COLOR) {
   const centerY = canvasH / 2;
   const angleStep = (2 * Math.PI) / SYMMETRY;
 
-  const glowPasses = [
-    { weight: 18, opacity: 0.12 },
-    { weight: 10, opacity: 0.24 },
-    { weight: 4, opacity: 0.71 },
+  const glowPasses = (size) => [
+    { weight: size * 6,    opacity: 0.12 },
+    { weight: size * 3.33, opacity: 0.24 },
+    { weight: size * 1.33, opacity: 0.71 },
   ];
 
   const paths = strokes
     .map((stroke) => {
-      const points = Array.isArray(stroke) ? stroke : stroke.points;
-      const color = Array.isArray(stroke) ? STROKE_COLOR : stroke.color;
-      const isAirbrush = !Array.isArray(stroke) && stroke.type === "airbrush";
+      const { points, color, type } = stroke;
+      const isAirbrush = type === "airbrush";
 
       if (points.length < 2) return "";
+
+      const strokeSize = stroke.size ?? STROKE_WEIGHT;
+      const passes = glowPasses(strokeSize);
 
       let result = "";
       for (let symmetryIndex = 0; symmetryIndex < SYMMETRY; symmetryIndex++) {
@@ -94,15 +96,15 @@ export function buildSVG(strokes, canvasW, canvasH, bgColor = BG_COLOR) {
               const py0 = mirror ? -p0.y : p0.y;
               const py1 = mirror ? -p1.y : p1.y;
               const d = `M ${(centerX + (p0.x * cos - py0 * sin) * scale).toFixed(2)} ${(centerY + (p0.x * sin + py0 * cos) * scale).toFixed(2)} L ${(centerX + (p1.x * cos - py1 * sin) * scale).toFixed(2)} ${(centerY + (p1.x * sin + py1 * cos) * scale).toFixed(2)}`;
-              for (const { weight, opacity } of glowPasses) {
+              for (const { weight, opacity } of passes) {
                 result += `<path d="${d}" stroke="${color}" stroke-width="${weight}" opacity="${opacity}" fill="none" stroke-linecap="round"/>\n`;
               }
             }
           }
           result += `</g>\n`;
         } else {
-          result += `<path d="${dOriginal}" stroke="${color}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
-          result += `<path d="${dMirrored}" stroke="${color}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
+          result += `<path d="${dOriginal}" stroke="${color}" stroke-width="${strokeSize}" fill="none" stroke-linecap="round"/>\n`;
+          result += `<path d="${dMirrored}" stroke="${color}" stroke-width="${strokeSize}" fill="none" stroke-linecap="round"/>\n`;
         }
       }
       return result;
@@ -141,10 +143,8 @@ export function getUserId() {
 // Zeichnet einen einzelnen Strich mit allen Symmetrie-Kopien.
 // Wird beim Live-Zeichnen und beim Redraw (Undo/Resize) verwendet.
 export function drawStrokeSymmetric(sketch, stroke) {
-  // Prüfen ob array ist, weil alte daten ja noch als array gespeichert. Sonst crash wenn alte array daten rein laden
-  const points = Array.isArray(stroke) ? stroke : stroke.points;
-  const color = Array.isArray(stroke) ? STROKE_COLOR : stroke.color;
-  const isAirbrush = !Array.isArray(stroke) && stroke.type === "airbrush";
+  const { points, color, type } = stroke;
+  const isAirbrush = type === "airbrush";
 
   if (points.length < 2) return;
   const angleStep = 360 / SYMMETRY;
