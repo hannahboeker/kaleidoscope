@@ -23,6 +23,10 @@ const DesignSchema = new mongoose.Schema(
       type: Number,
       default: 3,
     },
+    bgColor: {
+      type: String,
+      default: "#ffffff",
+    },
   },
   {
     // createdAt (wann ertsellt), updatedAt(wann zuletzt geändert) von mongoose

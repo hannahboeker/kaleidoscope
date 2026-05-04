@@ -58,6 +58,14 @@ const ExpandedGalleryOval = styled.div`
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
+
+  ${({ $shrinking }) =>
+    $shrinking &&
+    `
+    transition: height 0.7s ease-in-out, width 0.7s ease-in-out;
+    height: 14vh;
+    width: 85vw;
+  `}
 `;
 
 const WorkspaceButton = styled.button`
@@ -293,7 +301,7 @@ export default function GalleryPage() {
   return (
     <Page>
       <TopArea>
-        <ExpandedGalleryOval />
+        <ExpandedGalleryOval $shrinking={expandingWorkspace} />
         <WorkspaceButton onClick={handleWorkspaceNav}>
           workspace
         </WorkspaceButton>

@@ -73,6 +73,14 @@ const BackgroundSVG = styled.svg`
   height: 100%;
   pointer-events: none;
   z-index: 0;
+  transform-origin: top center;
+
+  ${({ $shrinking }) =>
+    $shrinking &&
+    `
+    transition: transform 0.7s ease-in-out;
+    transform: scaleY(0);
+  `}
 `;
 
 const Header = styled.header`
@@ -106,8 +114,8 @@ const TitleOval = styled.div`
 //Basis für Button
 const SideOval = styled.button`
   position: fixed;
-  width: 56px;
-  height: 86px;
+  width: 66px;
+  height: 100px;
   border: 1.5px solid white;
   border-radius: 50%;
   background: transparent;
@@ -141,6 +149,8 @@ const SaveOval = styled(SideOval)`
 const SaveLabel = styled.span`
   display: inline-block;
   transform: rotate(-90deg) translateY(-10px);
+  width: 80px;
+  text-align: center;
 `;
 
 // Canvas in der Mitte, p5-Element verdeckt SVG dahinter
@@ -220,6 +230,47 @@ const GalleryOval = styled.div`
   `}
 `;
 
+const ColorPickerLabel = styled.label`
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: white;
+  font-family: "Neumarkt", serif;
+  font-size: 18px;
+  letter-spacing: 0.09em;
+  z-index: 2;
+  bottom: 22%;
+`;
+
+const StrokeColorPickerLabel = styled(ColorPickerLabel)`
+  left: 5%;
+`;
+
+const BgColorPickerLabel = styled(ColorPickerLabel)`
+  right: 5%;
+`;
+
+const ColorInput = styled.input`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid white;
+  cursor: pointer;
+  padding: 2px;
+  background: none;
+
+  &::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  &::-webkit-color-swatch {
+    border-radius: 50%;
+    border: none;
+  }
+`;
+
 export default function Canvas() {
   const containerRef = useRef(null);
   const p5Ref = useRef(null);
@@ -227,6 +278,10 @@ export default function Canvas() {
   const [strokeCount, setStrokeCount] = useState(0);
   const [saveState, setSaveState] = useState("idle");
   const [expanding, setExpanding] = useState(false);
+  const [strokeColor, setStrokeColor] = useState(STROKE_COLOR);
+  const [bgColor, setBgColor] = useState(BG_COLOR);
+  const strokeColorRef = useRef(STROKE_COLOR);
+  const bgColorRef = useRef(BG_COLOR);
   const searchParams = useSearchParams();
   const designId = searchParams.get("id");
   const router = useRouter();
@@ -238,7 +293,7 @@ export default function Canvas() {
   };
 
   const redrawStrokes = useCallback((sketch) => {
-    sketch.background(BG_COLOR);
+    sketch.background(bgColorRef.current);
     sketch.push();
     sketch.translate(sketch.width / 2, sketch.height / 2);
     sketch.angleMode(sketch.DEGREES);
@@ -252,7 +307,13 @@ export default function Canvas() {
     fetch(`/api/design/${designId}?userId=${userId}`)
       .then((res) => res.json())
       .then((data) => {
-        strokesRef.current = data.design?.strokes ?? [];
+        const rawStrokes = data.design?.strokes ?? [];
+        strokesRef.current = rawStrokes.map((s) =>
+          Array.isArray(s) ? { points: s, color: STROKE_COLOR } : s,
+        );
+        const loadedBgColor = data.design?.bgColor ?? BG_COLOR;
+        setBgColor(loadedBgColor);
+        bgColorRef.current = loadedBgColor;
         setStrokeCount(strokesRef.current.length);
         requestAnimationFrame(() => {
           if (p5Ref.current && strokesRef.current.length > 0) {
@@ -274,7 +335,7 @@ export default function Canvas() {
         const { width, height } = getSize();
         const canvasElement = sketch.createCanvas(width, height);
         canvasElement.style("display", "block");
-        sketch.background(BG_COLOR);
+        sketch.background(bgColorRef.current);
         sketch.strokeCap(sketch.ROUND);
         sketch.angleMode(sketch.DEGREES);
         sketch.noLoop();
@@ -327,7 +388,7 @@ export default function Canvas() {
         for (let symmetryIndex = 0; symmetryIndex < SYMMETRY; symmetryIndex++) {
           sketch.push();
           sketch.rotate(angleStep * symmetryIndex);
-          sketch.stroke(STROKE_COLOR);
+          sketch.stroke(strokeColorRef.current);
           sketch.strokeWeight(STROKE_WEIGHT);
           sketch.line(
             prev.x * scale,
@@ -354,7 +415,10 @@ export default function Canvas() {
           return;
         }
         isDrawing = false;
-        strokesRef.current.push([...currentStroke]);
+        strokesRef.current.push({
+          points: [...currentStroke],
+          color: strokeColorRef.current,
+        });
         setStrokeCount(strokesRef.current.length);
         currentStroke = [];
       };
@@ -374,14 +438,19 @@ export default function Canvas() {
   const handleExport = async () => {
     try {
       const canvas = p5Ref.current;
-      const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
+      const svg = buildSVG(
+        strokesRef.current,
+        canvas.width,
+        canvas.height,
+        bgColorRef.current,
+      );
       const response = await fetch("/api/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           svg,
-          bgColor: BG_COLOR,
-          strokeColor: STROKE_COLOR,
+          bgColor: bgColorRef.current,
+          strokeColor: strokeColorRef.current,
         }),
       });
       if (!response.ok) {
@@ -415,12 +484,21 @@ export default function Canvas() {
     try {
       const canvas = p5Ref.current;
       const userId = getUserId();
-      const svg = buildSVG(strokesRef.current, canvas.width, canvas.height);
+      const svg = buildSVG(
+        strokesRef.current,
+        canvas.width,
+        canvas.height,
+        bgColorRef.current,
+      );
       const response = designId
         ? await fetch(`/api/design/${designId}?userId=${userId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ svg, strokes: strokesRef.current }),
+            body: JSON.stringify({
+              svg,
+              strokes: strokesRef.current,
+              bgColor: bgColorRef.current,
+            }),
           })
         : await fetch("/api/design/save", {
             method: "POST",
@@ -430,6 +508,7 @@ export default function Canvas() {
               svg,
               strokes: strokesRef.current,
               symmetry: SYMMETRY,
+              bgColor: bgColorRef.current,
             }),
           });
       if (!response.ok) throw new Error("save failed");
@@ -452,7 +531,11 @@ export default function Canvas() {
   return (
     <PageWrapper>
       {/* SVG wird auf Bildschrimgröße gestrckt mit preserveAspectRatio="none", Koordinate 50 = 50% Viewport, X/Y skalieren unabhängig */}
-      <BackgroundSVG viewBox="0 0 100 100" preserveAspectRatio="none">
+      <BackgroundSVG
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        $shrinking={expanding}
+      >
         <defs>
           <clipPath id="gallery-clip">
             <ellipse cx="50" cy="93" rx="43" ry="7" />
@@ -509,6 +592,31 @@ export default function Canvas() {
       <Footer />
 
       <GalleryOval $expanding={expanding} />
+
+      <StrokeColorPickerLabel>
+        brush
+        <ColorInput
+          type="color"
+          value={strokeColor}
+          onChange={(e) => {
+            setStrokeColor(e.target.value);
+            strokeColorRef.current = e.target.value;
+          }}
+        />
+      </StrokeColorPickerLabel>
+
+      <BgColorPickerLabel>
+        bg
+        <ColorInput
+          type="color"
+          value={bgColor}
+          onChange={(e) => {
+            setBgColor(e.target.value);
+            bgColorRef.current = e.target.value;
+            if (p5Ref.current) redrawStrokes(p5Ref.current);
+          }}
+        />
+      </BgColorPickerLabel>
 
       <ExportButton onClick={handleExport} disabled={strokeCount === 0}>
         <RainbowText text="export" colors={RAINBOW_EXPORT} />

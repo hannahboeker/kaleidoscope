@@ -34,7 +34,7 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
-    const { svg, strokes } = await request.json();
+    const { svg, strokes, bgColor } = await request.json();
 
     if (!userId || !svg) {
       return Response.json(
@@ -45,7 +45,7 @@ export async function PUT(request, { params }) {
 
     const updated = await Design.findOneAndUpdate(
       { _id: id, userId },
-      { svg, strokes },
+      { svg, strokes, bgColor },
       { new: true },
     );
 

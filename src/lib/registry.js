@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useServerInsertedHTML } from "next/navigation";
 import { ServerStyleSheet, StyleSheetManager } from "styled-components";
 
+// damit trotz App routing styled components direkt sichrbat // Fügt sie Styles währen HTML rendering in den HTML Head ein // Wrapper in Layout.js
 export default function StyledComponentsRegistry({ children }) {
   const [sheet] = useState(() => new ServerStyleSheet());
 
