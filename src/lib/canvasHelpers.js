@@ -43,14 +43,17 @@ export function getSize() {
 
 // Baut aus gespeicherten Strokes SVG-String
 // M = move to (Startpunkt), L = line to (Linie zum nächsten Punkt)
-export function buildSVG(strokes, canvasW, canvasH) {
+export function buildSVG(strokes, canvasW, canvasH, bgColor = BG_COLOR) {
   const scale = Math.max(canvasW, canvasH) / 2;
   const centerX = canvasW / 2;
   const centerY = canvasH / 2;
   const angleStep = (2 * Math.PI) / SYMMETRY;
 
   const paths = strokes
-    .map((points) => {
+    .map((stroke) => {
+      const points = Array.isArray(stroke) ? stroke : stroke.points;
+      const color = Array.isArray(stroke) ? STROKE_COLOR : stroke.color;
+
       if (points.length < 2) return "";
 
       let result = "";
@@ -67,7 +70,7 @@ export function buildSVG(strokes, canvasW, canvasH) {
             return `${i === 0 ? "M" : "L"} ${(centerX + rotatedX * scale).toFixed(2)} ${(centerY + rotatedY * scale).toFixed(2)}`;
           })
           .join(" ");
-        result += `<path d="${pathOriginal}" stroke="${STROKE_COLOR}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
+        result += `<path d="${pathOriginal}" stroke="${color}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
 
         // Y gespiegelt, dann rotiert
         const pathMirrored = points
@@ -77,13 +80,13 @@ export function buildSVG(strokes, canvasW, canvasH) {
             return `${i === 0 ? "M" : "L"} ${(centerX + rotatedX * scale).toFixed(2)} ${(centerY + rotatedY * scale).toFixed(2)}`;
           })
           .join(" ");
-        result += `<path d="${pathMirrored}" stroke="${STROKE_COLOR}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
+        result += `<path d="${pathMirrored}" stroke="${color}" stroke-width="${STROKE_WEIGHT}" fill="none" stroke-linecap="round"/>\n`;
       }
       return result;
     })
     .join("\n");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}" style="background:${BG_COLOR}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvasW} ${canvasH}" width="${canvasW}" height="${canvasH}" style="background:${bgColor}">
 ${paths}
 </svg>`;
 }
@@ -111,7 +114,10 @@ export function getUserId() {
 
 // Zeichnet einen einzelnen Strich mit allen Symmetrie-Kopien.
 // Wird beim Live-Zeichnen und beim Redraw (Undo/Resize) verwendet.
-export function drawStrokeSymmetric(sketch, points) {
+export function drawStrokeSymmetric(sketch, stroke) {
+  const points = Array.isArray(stroke) ? stroke : stroke.points;
+  const color = Array.isArray(stroke) ? STROKE_COLOR : stroke.color;
+
   if (points.length < 2) return;
   const angleStep = 360 / SYMMETRY;
   const scale = Math.max(sketch.width, sketch.height) / 2;
@@ -124,7 +130,7 @@ export function drawStrokeSymmetric(sketch, points) {
       sketch.push();
       sketch.rotate(angleStep * symmetryIndex);
 
-      sketch.stroke(STROKE_COLOR);
+      sketch.stroke(color);
       sketch.strokeWeight(STROKE_WEIGHT);
       sketch.line(
         prev.x * scale,

@@ -8,7 +8,7 @@ export async function POST(request) {
   try {
     await connectToDatabase();
     const body = await request.json();
-    const { userId, svg, strokes, symmetry } = body;
+    const { userId, svg, strokes, symmetry, bgColor } = body;
 
     if (!userId || !svg) {
       return Response.json(
@@ -17,7 +17,7 @@ export async function POST(request) {
       );
     }
 
-    const design = await Design.create({ userId, svg, strokes, symmetry });
+    const design = await Design.create({ userId, svg, strokes, symmetry, bgColor });
 
     return Response.json({ success: true, designId: design._id });
   } catch (error) {
