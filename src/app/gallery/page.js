@@ -261,7 +261,7 @@ export default function GalleryPage() {
       setDesigns(
         list.map((d) => ({
           ...d,
-          svg: DOMPurify.sanitize(d.svg, { USE_PROFILES: { svg: true } }),
+          svg: DOMPurify.sanitize(d.svg, { USE_PROFILES: { svg: true, svgFilters: true } }),
         })),
       );
       setDeletedMsg(false);
@@ -283,7 +283,7 @@ export default function GalleryPage() {
             setDesigns(
               list.map((d) => ({
                 ...d,
-                svg: DOMPurify.sanitize(d.svg, { USE_PROFILES: { svg: true } }),
+                svg: DOMPurify.sanitize(d.svg, { USE_PROFILES: { svg: true, svgFilters: true } }),
               })),
             );
           }),
