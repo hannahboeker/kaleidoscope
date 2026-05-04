@@ -271,6 +271,22 @@ const ColorInput = styled.input`
   }
 `;
 
+const BrushButton = styled.button`
+  position: fixed;
+  bottom: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: white;
+  font-family: "Neumarkt", serif;
+  font-size: 18px;
+  letter-spacing: 0.09em;
+  z-index: 2;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+`;
+
 export default function Canvas() {
   const containerRef = useRef(null);
   const p5Ref = useRef(null);
@@ -280,8 +296,10 @@ export default function Canvas() {
   const [expanding, setExpanding] = useState(false);
   const [strokeColor, setStrokeColor] = useState(STROKE_COLOR);
   const [bgColor, setBgColor] = useState(BG_COLOR);
+  const [brushType, setBrushType] = useState("normal");
   const strokeColorRef = useRef(STROKE_COLOR);
   const bgColorRef = useRef(BG_COLOR);
+  const brushTypeRef = useRef("normal");
   const searchParams = useSearchParams();
   const designId = searchParams.get("id");
   const router = useRouter();
@@ -382,28 +400,72 @@ export default function Canvas() {
           y: (sketch.mouseY - sketch.height / 2) / scale,
         };
         currentStroke.push(point);
+        const isAirbrush = brushTypeRef.current === "airbrush";
         sketch.push();
         sketch.translate(sketch.width / 2, sketch.height / 2);
         const angleStep = 360 / SYMMETRY;
-        for (let symmetryIndex = 0; symmetryIndex < SYMMETRY; symmetryIndex++) {
-          sketch.push();
-          sketch.rotate(angleStep * symmetryIndex);
-          sketch.stroke(strokeColorRef.current);
-          sketch.strokeWeight(STROKE_WEIGHT);
-          sketch.line(
-            prev.x * scale,
-            prev.y * scale,
-            point.x * scale,
-            point.y * scale,
-          );
-          sketch.scale(1, -1);
-          sketch.line(
-            prev.x * scale,
-            prev.y * scale,
-            point.x * scale,
-            point.y * scale,
-          );
-          sketch.pop();
+
+        if (isAirbrush) {
+          const col = sketch.color(strokeColorRef.current);
+          const r = sketch.red(col);
+          const g = sketch.green(col);
+          const b = sketch.blue(col);
+          const passes = [
+            { weight: 18, alpha: 30 },
+            { weight: 10, alpha: 60 },
+            { weight: 4, alpha: 180 },
+          ];
+          for (const { weight, alpha } of passes) {
+            sketch.strokeWeight(weight);
+            sketch.stroke(r, g, b, alpha);
+            for (
+              let symmetryIndex = 0;
+              symmetryIndex < SYMMETRY;
+              symmetryIndex++
+            ) {
+              sketch.push();
+              sketch.rotate(angleStep * symmetryIndex);
+              sketch.line(
+                prev.x * scale,
+                prev.y * scale,
+                point.x * scale,
+                point.y * scale,
+              );
+              sketch.scale(1, -1);
+              sketch.line(
+                prev.x * scale,
+                prev.y * scale,
+                point.x * scale,
+                point.y * scale,
+              );
+              sketch.pop();
+            }
+          }
+        } else {
+          for (
+            let symmetryIndex = 0;
+            symmetryIndex < SYMMETRY;
+            symmetryIndex++
+          ) {
+            sketch.push();
+            sketch.rotate(angleStep * symmetryIndex);
+            sketch.stroke(strokeColorRef.current);
+            sketch.strokeWeight(STROKE_WEIGHT);
+            sketch.line(
+              prev.x * scale,
+              prev.y * scale,
+              point.x * scale,
+              point.y * scale,
+            );
+            sketch.scale(1, -1);
+            sketch.line(
+              prev.x * scale,
+              prev.y * scale,
+              point.x * scale,
+              point.y * scale,
+            );
+            sketch.pop();
+          }
         }
         sketch.pop();
       };
@@ -418,6 +480,7 @@ export default function Canvas() {
         strokesRef.current.push({
           points: [...currentStroke],
           color: strokeColorRef.current,
+          type: brushTypeRef.current, //airbrush speichern
         });
         setStrokeCount(strokesRef.current.length);
         currentStroke = [];
@@ -617,6 +680,18 @@ export default function Canvas() {
           }}
         />
       </BgColorPickerLabel>
+
+      <BrushButton
+        //toggle blur button
+        onClick={() => {
+          const next =
+            brushTypeRef.current === "normal" ? "airbrush" : "normal";
+          setBrushType(next);
+          brushTypeRef.current = next;
+        }}
+      >
+        {brushType === "airbrush" ? <RainbowText text="blur" /> : "blur"}
+      </BrushButton>
 
       <ExportButton onClick={handleExport} disabled={strokeCount === 0}>
         <RainbowText text="export" colors={RAINBOW_EXPORT} />
