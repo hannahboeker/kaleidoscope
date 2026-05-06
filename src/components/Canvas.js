@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import p5 from "p5";
 import styled from "styled-components";
 import {
@@ -322,11 +321,8 @@ export default function Canvas() {
   const [savedDesigns, setSavedDesigns] = useState([]);
   const [toolbarHidden, setToolbarHidden] = useState(false);
   const [canvasSize, setCanvasSize] = useState(() => getSize());
+  const [currentDesignId, setCurrentDesignId] = useState(null);
   const workspaceRef = useRef(null);
-
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const designId = searchParams.get("id");
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -363,48 +359,6 @@ export default function Canvas() {
       }
     }
   }, []);
-
-  // ── Load design by ID ──────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!designId) return;
-    const userId = getUserId();
-    fetch(`/api/design/${designId}?userId=${userId}`)
-      .then((res) => {
-        if (!res.ok) {
-          router.replace("/", { scroll: false });
-          return null;
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (!data) return;
-        const rawStrokes = data.design?.strokes ?? [];
-        strokesRef.current = rawStrokes.map((s) =>
-          Array.isArray(s)
-            ? {
-                points: s,
-                color: STROKE_COLOR,
-                type: "normal",
-                size: STROKE_WEIGHT,
-              }
-            : {
-                points: s.points ?? [],
-                color: s.color ?? STROKE_COLOR,
-                type: s.type ?? "normal",
-                size: s.size ?? STROKE_WEIGHT,
-              },
-        );
-        const loadedBgColor = data.design?.bgColor ?? BG_COLOR;
-        setBgColor(loadedBgColor);
-        bgColorRef.current = loadedBgColor;
-        setStrokeCount(strokesRef.current.length);
-        requestAnimationFrame(() => {
-          if (p5Ref.current) redrawStrokes(p5Ref.current);
-        });
-      })
-      .catch(() => {});
-  }, [designId, redrawStrokes, router]);
 
   // ── Load gallery on mount ──────────────────────────────────────────────────
 
@@ -586,6 +540,17 @@ export default function Canvas() {
     if (p5Ref.current) redrawStrokes(p5Ref.current);
   };
 
+  const clearCanvas = useCallback(() => {
+    strokesRef.current = [];
+    bgColorRef.current = BG_COLOR;
+    strokeColorRef.current = STROKE_COLOR;
+    setBgColor(BG_COLOR);
+    setStrokeColor(STROKE_COLOR);
+    setStrokeCount(0);
+    setCurrentDesignId(null);
+    if (p5Ref.current) redrawStrokes(p5Ref.current);
+  }, [redrawStrokes]);
+
   const handleSave = async () => {
     if (strokesRef.current.length === 0) return;
     setSaveState("saving");
@@ -612,10 +577,9 @@ export default function Canvas() {
       };
 
       let response;
-      let usedDesignId = designId;
 
-      if (designId) {
-        response = await fetch(`/api/design/${designId}?userId=${userId}`, {
+      if (currentDesignId) {
+        response = await fetch(`/api/design/${currentDesignId}?userId=${userId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -625,9 +589,6 @@ export default function Canvas() {
           }),
         });
         if (response.status === 404) {
-          // Design wurde gelöscht — als neues Design speichern
-          router.replace("/", { scroll: false });
-          usedDesignId = null;
           response = await fetch("/api/design/save", postOpts);
         }
       } else {
@@ -635,13 +596,10 @@ export default function Canvas() {
       }
 
       if (!response.ok) throw new Error("save failed");
-      const data = await response.json();
-      if (!usedDesignId && data.designId) {
-        router.replace(`/?id=${data.designId}`, { scroll: false });
-      }
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
       await loadDesigns();
+      clearCanvas();
     } catch (err) {
       console.error(err);
       setSaveState("error");
@@ -694,7 +652,23 @@ export default function Canvas() {
 
   const handleEditDesign = (design) => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    router.push(`/?id=${design._id}`, { scroll: false });
+    const rawStrokes = design.strokes ?? [];
+    strokesRef.current = rawStrokes.map((s) =>
+      Array.isArray(s)
+        ? { points: s, color: STROKE_COLOR, type: "normal", size: STROKE_WEIGHT }
+        : {
+            points: s.points ?? [],
+            color: s.color ?? STROKE_COLOR,
+            type: s.type ?? "normal",
+            size: s.size ?? STROKE_WEIGHT,
+          },
+    );
+    const loadedBgColor = design.bgColor ?? BG_COLOR;
+    bgColorRef.current = loadedBgColor;
+    setBgColor(loadedBgColor);
+    setStrokeCount(strokesRef.current.length);
+    setCurrentDesignId(design._id);
+    if (p5Ref.current) redrawStrokes(p5Ref.current);
   };
 
   const handleDeleteDesign = async (e, id) => {
@@ -710,7 +684,7 @@ export default function Canvas() {
         console.error("Delete failed", res.status, body);
         return;
       }
-      if (designId === id) router.replace("/", { scroll: false });
+      if (currentDesignId === id) clearCanvas();
       await loadDesigns();
     } catch (err) {
       console.error(err);
