@@ -17,298 +17,318 @@ import {
   getUserId,
 } from "@/lib/canvasHelpers";
 
-const RAINBOW = [
-  "#e63535",
-  "#ff8c00",
-  "#ffe100",
-  "#00c853",
-  "#00bcd4",
-  "#1e88e5",
-  "#e91e63",
-  "#9c27b0",
-];
+const PAGE_BG = "#999999";
 
-const RAINBOW_EXPORT = [
-  "#e63535",
-  "#ff8c00",
-  "#c4a000",
-  "#00c853",
-  "#00bcd4",
-  "#1e88e5",
-  "#e91e63",
-  "#9c27b0",
-];
+// LAYOUT ──────────────────────────────────────────────────────────────────
 
-const FONT_SIZE = "30px";
-//.split um einzelne Buchstaben zu färben // Wenn index größer als array beginn von vorne
-function RainbowText({ text, colors = RAINBOW }) {
-  return (
-    <>
-      {text.split("").map((char, i) => (
-        <span key={i} style={{ color: colors[i % colors.length] }}>
-          {char === " " ? " " : char}
-        </span>
-      ))}
-    </>
-  );
-}
-
-//BackgroundSVG orientiert sich absolut hier dran, scrollen ausstellen
-const PageWrapper = styled.div`
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: #000;
-  font-family: "Neumarkt", serif;
-  position: relative;
+const ScrollContainer = styled.div`
+  height: 100dvh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior-y: contain;
+  background: ${PAGE_BG};
 `;
 
-//hinter allem, weiße ovale und schnittmenge
-const BackgroundSVG = styled.svg`
+const WorkspaceSection = styled.section`
+  height: 100dvh;
+  scroll-snap-align: start;
+  background: ${PAGE_BG};
+  display: flex;
+  flex-direction: column;
+`;
+
+const WorkspaceHeader = styled.header`
+  height: ${HEADER_HEIGHT}px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px 0;
+`;
+
+const IconButton = styled.button`
+  position: relative;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+  ${({ $disabled }) => $disabled && "pointer-events: none;"}
+
+  img + img {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover img:first-child {
+    opacity: 0;
+  }
+
+  &:hover img + img {
+    opacity: 1;
+  }
+`;
+
+const CanvasArea = styled.main`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5px 2px 0;
+`;
+
+// TOOLBAR ──────────────────────────────────────────────────────────
+
+const Toolbar = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: ${FOOTER_HEIGHT}px;
+  background: transparent;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 16px;
+  opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
+  pointer-events: ${({ $hidden }) => ($hidden ? "none" : "auto")};
+  transition: opacity 0.3s;
+`;
+
+const ColorToolLabel = styled.label`
+  position: relative;
+  cursor: pointer;
+  display: block;
+  flex-shrink: 0;
+  line-height: 0;
+  z-index: 1;
+  isolation: isolate;
+
+  &::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: calc(100% - 26px);
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffffff;
+    font-family: "Neumarkt", serif;
+    font-size: 23px;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+
+  &:hover::after {
+    opacity: 1;
+  }
+
+  &[data-label="background"]::after {
+    bottom: calc(100% - 18px);
+  }
+`;
+
+const HiddenColorInput = styled.input.attrs({ type: "color" })`
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  transform-origin: top center;
-
-  ${({ $shrinking }) =>
-    $shrinking &&
-    `
-    transition: transform 0.7s ease-in-out;
-    transform: scaleY(0);
-  `}
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
 `;
 
-const Header = styled.header`
-  height: ${HEADER_HEIGHT}px;
+const BlurButton = styled.button`
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
   flex-shrink: 0;
+  z-index: 1;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1;
-`;
+  filter: ${({ $active }) =>
+    $active ? "brightness(1.5) saturate(2)" : "none"};
+  transition: filter 0.2s;
 
-const TitleOval = styled.div`
-  position: fixed;
-  top: -30px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 68%;
-  height: 130px;
-  border: 1.5px solid white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 0 30px;
-  font-size: ${FONT_SIZE};
-  z-index: 2;
-`;
+  span {
+    transition: color 0.2s;
+  }
 
-//Basis für Button
-const SideOval = styled.button`
-  position: fixed;
-  width: 66px;
-  height: 100px;
-  border: 1.5px solid white;
-  border-radius: 50%;
-  background: transparent;
-  color: white;
-  cursor: pointer;
-  font-family: "Neumarkt", serif;
-  font-size: ${FONT_SIZE};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3;
-
-  &:disabled {
-    cursor: default;
+  &:hover span {
+    color: #e879f9;
   }
 `;
 
-const UndoOval = styled(SideOval)`
-  top: 25px;
-  left: 3%;
-  transform: rotate(-30deg);
-`;
-
-const SaveOval = styled(SideOval)`
-  top: 30px;
-  right: 30px;
-  transform: rotate(150deg);
-  ${({ $error }) => $error && `border-color: #e63535; color: #e63535;`}
-`;
-
-const SaveLabel = styled.span`
-  display: inline-block;
-  transform: rotate(-90deg) translateY(-10px);
-  width: 80px;
-  text-align: center;
-`;
-
-// Canvas in der Mitte, p5-Element verdeckt SVG dahinter
-const CanvasSection = styled.main`
+const ToolbarSpacer = styled.div`
   flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-  padding-bottom: 30px;
 `;
 
-const Footer = styled.footer`
-  height: ${FOOTER_HEIGHT}px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-`;
-
-// position: fixed immer am SVG ausgerichtet, unabhängig von Canvas-Größe
-const ExportButton = styled.button`
-  position: fixed;
-  bottom: 10%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: "Neumarkt", serif;
-  font-size: ${FONT_SIZE};
-  z-index: 2;
-  white-space: nowrap;
-
-  &:disabled {
-    cursor: default;
-  }
-`;
-
-const GalleryButton = styled.button`
-  position: fixed;
-  bottom: 3%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: white;
-  font-family: "Neumarkt", serif;
-  font-size: ${FONT_SIZE};
-  z-index: 2;
-  white-space: nowrap;
-  letter-spacing: 0.09em;
-`;
-
-// //expanding nicht an DOM, wenn true animatiionstartet
-const GalleryOval = styled.div`
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 85vw;
-  height: 14vh;
-  border: 1.5px solid white;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 1;
-
-  ${({ $expanding }) =>
-    $expanding &&
-    `
-    transition: height 0.7s ease-in-out, width 0.7s ease-in-out;
-    height: 100vh;
-    width: 100vw;
-  `}
-`;
-
-const ColorPickerLabel = styled.label`
-  position: fixed;
+const ExportArea = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  color: white;
-  font-family: "Neumarkt", serif;
-  font-size: 18px;
-  letter-spacing: 0.09em;
-  z-index: 2;
-  bottom: 22%;
+  align-items: flex-end;
+  gap: 3px;
+  padding-right: 14px;
+  flex-shrink: 0;
+  z-index: 1;
 `;
 
-const StrokeColorPickerLabel = styled(ColorPickerLabel)`
-  left: 5%;
-`;
-
-const BgColorPickerLabel = styled(ColorPickerLabel)`
-  right: 5%;
-`;
-
-const ColorInput = styled.input`
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1.5px solid white;
-  cursor: pointer;
-  padding: 2px;
+// Export-Button mit SVG-Rahmenform als Hintergrund
+const ShapeButton = styled.button`
+  position: relative;
   background: none;
-
-  &::-webkit-color-swatch-wrapper {
-    padding: 0;
-  }
-  &::-webkit-color-swatch {
-    border-radius: 50%;
-    border: none;
-  }
-`;
-
-const BrushButton = styled.button`
-  position: fixed;
-  bottom: 22%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: transparent;
   border: none;
   cursor: pointer;
-  color: white;
-  font-family: "Neumarkt", serif;
-  font-size: 18px;
-  letter-spacing: 0.09em;
-  z-index: 2;
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    display: block;
+  }
+
+  svg path {
+    fill: #ffffff;
+    stroke: none;
+    transition: fill 0.2s;
+  }
+
+  span {
+    color: #e879f9;
+    transition: color 0.2s;
+  }
+
+  &:hover svg path {
+    fill: #e879f9;
+  }
+
+  &:hover span {
+    color: #ffffff;
+  }
 `;
+
+const ButtonLabel = styled.span`
+  position: absolute;
+  font-family: "Neumarkt", serif;
+  font-size: 23px;
+  color: #ffffff;
+  letter-spacing: 0.09em;
+  white-space: nowrap;
+  pointer-events: none;
+`;
+
+// SAVED DESIGN ────────────────────────────────────────────────────────────
+
+const GalleryContainer = styled.div`
+  scroll-snap-align: start;
+`;
+
+const SavedSection = styled.section`
+  background: ${PAGE_BG};
+  padding: 6px 0;
+  display: flex;
+  justify-content: center;
+`;
+
+const SavedImageWrapper = styled.div`
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+
+  & > div {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  & > div > svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  button {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover button {
+    opacity: 1;
+  }
+`;
+
+const ActionBtn = styled.button`
+  position: absolute;
+  top: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+
+  img + img {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  &:hover img:first-child {
+    opacity: 0;
+  }
+
+  &:hover img + img {
+    opacity: 1;
+  }
+`;
+
+const DeleteBtn = styled(ActionBtn)`
+  left: 10px;
+`;
+
+const EditBtn = styled(ActionBtn)`
+  right: 10px;
+`;
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Canvas() {
   const containerRef = useRef(null);
+  const scrollRef = useRef(null);
   const p5Ref = useRef(null);
   const strokesRef = useRef([]);
-  const [strokeCount, setStrokeCount] = useState(0);
-  const [saveState, setSaveState] = useState("idle");
-  const [expanding, setExpanding] = useState(false);
-  const [strokeColor, setStrokeColor] = useState(STROKE_COLOR);
-  const [bgColor, setBgColor] = useState(BG_COLOR);
-  const [brushType, setBrushType] = useState("normal");
   const strokeColorRef = useRef(STROKE_COLOR);
   const bgColorRef = useRef(BG_COLOR);
   const brushTypeRef = useRef("normal");
-  const searchParams = useSearchParams();
-  const designId = searchParams.get("id");
-  const router = useRouter();
 
-  //TODO:Timing noch verbessern? löst nach 700ms aus
-  const handleGalleryNav = () => {
-    setExpanding(true);
-    setTimeout(() => router.push("/gallery"), 700);
-  };
+  const [strokeCount, setStrokeCount] = useState(0);
+  const [saveState, setSaveState] = useState("idle");
+  const [strokeColor, setStrokeColor] = useState(STROKE_COLOR);
+  const [bgColor, setBgColor] = useState(BG_COLOR);
+  const [brushType, setBrushType] = useState("normal");
+  const [savedDesigns, setSavedDesigns] = useState([]);
+  const [toolbarHidden, setToolbarHidden] = useState(false);
+  const [canvasSize, setCanvasSize] = useState(() => getSize());
+  const workspaceRef = useRef(null);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const designId = searchParams.get("id");
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   const redrawStrokes = useCallback((sketch) => {
     sketch.background(bgColorRef.current);
@@ -319,14 +339,47 @@ export default function Canvas() {
     sketch.pop();
   }, []);
 
+  const loadDesigns = useCallback(async (retries = 2) => {
+    try {
+      const userId = getUserId();
+      const { default: DOMPurify } = await import("dompurify");
+      const res = await fetch(`/api/designs?userId=${userId}`);
+      const data = await res.json();
+      const list = data.designs ?? [];
+      setSavedDesigns(
+        list.map((d) => {
+          const clean = DOMPurify.sanitize(d.svg, {
+            USE_PROFILES: { svg: true, svgFilters: true },
+          });
+          const normalized = clean
+            .replace(/(<svg[^>]*)\swidth="[^"]*"/, '$1 width="100%"')
+            .replace(/(<svg[^>]*)\sheight="[^"]*"/, '$1 height="100%"');
+          return { ...d, svg: normalized };
+        }),
+      );
+    } catch (err) {
+      if (retries > 0) {
+        setTimeout(() => loadDesigns(retries - 1), 800);
+      }
+    }
+  }, []);
+
+  // ── Load design by ID ──────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!designId) return;
     const userId = getUserId();
     fetch(`/api/design/${designId}?userId=${userId}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          router.replace("/", { scroll: false });
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         const rawStrokes = data.design?.strokes ?? [];
-        //hier Stroke Arrays in neue Objket Form umwandeln
         strokesRef.current = rawStrokes.map((s) =>
           Array.isArray(s)
             ? {
@@ -347,13 +400,32 @@ export default function Canvas() {
         bgColorRef.current = loadedBgColor;
         setStrokeCount(strokesRef.current.length);
         requestAnimationFrame(() => {
-          if (p5Ref.current && strokesRef.current.length > 0) {
-            redrawStrokes(p5Ref.current);
-          }
+          if (p5Ref.current) redrawStrokes(p5Ref.current);
         });
       })
-      .catch((err) => console.error("loading design failed:", err));
-  }, [designId, redrawStrokes]);
+      .catch(() => {});
+  }, [designId, redrawStrokes, router]);
+
+  // ── Load gallery on mount ──────────────────────────────────────────────────
+
+  useEffect(() => {
+    loadDesigns();
+  }, [loadDesigns]);
+
+  // ── Toolbar ausblenden wenn Galerie sichtbar ───────────────────────────────
+
+  useEffect(() => {
+    const el = workspaceRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setToolbarHidden(!entry.isIntersecting),
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // ── p5 setup ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (p5Ref.current) return;
@@ -370,12 +442,14 @@ export default function Canvas() {
         sketch.strokeCap(sketch.ROUND);
         sketch.angleMode(sketch.DEGREES);
         sketch.noLoop();
+        setCanvasSize({ width, height });
         if (strokesRef.current.length > 0) redrawStrokes(sketch);
       };
 
       sketch.windowResized = () => {
         const { width, height } = getSize();
         sketch.resizeCanvas(width, height);
+        setCanvasSize({ width, height });
         redrawStrokes(sketch);
       };
 
@@ -431,13 +505,9 @@ export default function Canvas() {
           for (const { weight, alpha } of passes) {
             sketch.strokeWeight(weight);
             sketch.stroke(r, g, b, alpha);
-            for (
-              let symmetryIndex = 0;
-              symmetryIndex < SYMMETRY;
-              symmetryIndex++
-            ) {
+            for (let i = 0; i < SYMMETRY; i++) {
               sketch.push();
-              sketch.rotate(angleStep * symmetryIndex);
+              sketch.rotate(angleStep * i);
               sketch.line(
                 prev.x * scale,
                 prev.y * scale,
@@ -455,13 +525,9 @@ export default function Canvas() {
             }
           }
         } else {
-          for (
-            let symmetryIndex = 0;
-            symmetryIndex < SYMMETRY;
-            symmetryIndex++
-          ) {
+          for (let i = 0; i < SYMMETRY; i++) {
             sketch.push();
-            sketch.rotate(angleStep * symmetryIndex);
+            sketch.rotate(angleStep * i);
             sketch.stroke(strokeColorRef.current);
             sketch.strokeWeight(STROKE_WEIGHT);
             sketch.line(
@@ -493,7 +559,7 @@ export default function Canvas() {
         strokesRef.current.push({
           points: [...currentStroke],
           color: strokeColorRef.current,
-          type: brushTypeRef.current, //airbrush speichern
+          type: brushTypeRef.current,
         });
         setStrokeCount(strokesRef.current.length);
         currentStroke = [];
@@ -511,7 +577,88 @@ export default function Canvas() {
     };
   }, [redrawStrokes]);
 
-  const handleExport = async () => {
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleUndo = () => {
+    if (strokesRef.current.length === 0) return;
+    strokesRef.current.pop();
+    setStrokeCount(strokesRef.current.length);
+    if (p5Ref.current) redrawStrokes(p5Ref.current);
+  };
+
+  const handleSave = async () => {
+    if (strokesRef.current.length === 0) return;
+    setSaveState("saving");
+    try {
+      const canvas = p5Ref.current;
+      const userId = getUserId();
+      const svg = buildSVG(
+        strokesRef.current,
+        canvas.width,
+        canvas.height,
+        bgColorRef.current,
+      );
+      const postBody = JSON.stringify({
+        userId,
+        svg,
+        strokes: strokesRef.current,
+        symmetry: SYMMETRY,
+        bgColor: bgColorRef.current,
+      });
+      const postOpts = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: postBody,
+      };
+
+      let response;
+      let usedDesignId = designId;
+
+      if (designId) {
+        response = await fetch(`/api/design/${designId}?userId=${userId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            svg,
+            strokes: strokesRef.current,
+            bgColor: bgColorRef.current,
+          }),
+        });
+        if (response.status === 404) {
+          // Design wurde gelöscht — als neues Design speichern
+          router.replace("/", { scroll: false });
+          usedDesignId = null;
+          response = await fetch("/api/design/save", postOpts);
+        }
+      } else {
+        response = await fetch("/api/design/save", postOpts);
+      }
+
+      if (!response.ok) throw new Error("save failed");
+      const data = await response.json();
+      if (!usedDesignId && data.designId) {
+        router.replace(`/?id=${data.designId}`, { scroll: false });
+      }
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
+      await loadDesigns();
+    } catch (err) {
+      console.error(err);
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 2000);
+    }
+  };
+
+  const handleExportJpg = () => {
+    const el = containerRef.current?.querySelector("canvas");
+    if (!el) return;
+    const a = document.createElement("a");
+    a.href = el.toDataURL("image/jpeg", 0.95);
+    a.download = "kaleidoscope.jpg";
+    a.click();
+  };
+
+  const handleExportPdf = async () => {
     try {
       const canvas = p5Ref.current;
       const svg = buildSVG(
@@ -535,182 +682,304 @@ export default function Canvas() {
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const downloadLink = document.createElement("a");
-      downloadLink.href = url;
-      downloadLink.download = "kaleidoscope-postcard.pdf";
-      downloadLink.click();
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "kaleidoscope-postcard.pdf";
+      a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleUndo = () => {
-    if (strokesRef.current.length === 0) return;
-    strokesRef.current.pop();
-    setStrokeCount(strokesRef.current.length);
-    const canvas = p5Ref.current;
-    if (!canvas) return;
-    redrawStrokes(canvas);
+  const handleEditDesign = (design) => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    router.push(`/?id=${design._id}`, { scroll: false });
   };
 
-  const handleSave = async () => {
-    if (strokesRef.current.length === 0) return;
-    setSaveState("saving");
+  const handleDeleteDesign = async (e, id) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this design?")) return;
     try {
-      const canvas = p5Ref.current;
       const userId = getUserId();
-      const svg = buildSVG(
-        strokesRef.current,
-        canvas.width,
-        canvas.height,
-        bgColorRef.current,
-      );
-      const response = designId
-        ? await fetch(`/api/design/${designId}?userId=${userId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              svg,
-              strokes: strokesRef.current,
-              bgColor: bgColorRef.current,
-            }),
-          })
-        : await fetch("/api/design/save", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId,
-              svg,
-              strokes: strokesRef.current,
-              symmetry: SYMMETRY,
-              bgColor: bgColorRef.current,
-            }),
-          });
-      if (!response.ok) throw new Error("save failed");
-      setSaveState("saved");
-      setTimeout(() => setSaveState("idle"), 2000);
+      const res = await fetch(`/api/design/${id}?userId=${userId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok && res.status !== 404) {
+        const body = await res.json().catch(() => ({}));
+        console.error("Delete failed", res.status, body);
+        return;
+      }
+      if (designId === id) router.replace("/", { scroll: false });
+      await loadDesigns();
     } catch (err) {
       console.error(err);
-      setSaveState("error");
-      setTimeout(() => setSaveState("idle"), 2000);
     }
   };
 
-  const saveLabel = {
-    saving: "saving...",
-    saved: "",
-    error: "error",
-    idle: "save",
-  }[saveState];
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <PageWrapper>
-      {/* SVG wird auf Bildschrimgröße gestrckt mit preserveAspectRatio="none", Koordinate 50 = 50% Viewport, X/Y skalieren unabhängig */}
-      <BackgroundSVG
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        $shrinking={expanding}
-      >
-        <defs>
-          <clipPath id="gallery-clip">
-            <ellipse cx="50" cy="93" rx="43" ry="7" />
-          </clipPath>
-        </defs>
+    <ScrollContainer ref={scrollRef}>
+      {/* ── Workspace ── */}
+      <WorkspaceSection ref={workspaceRef}>
+        <WorkspaceHeader>
+          <IconButton onClick={handleUndo} $disabled={strokeCount === 0}>
+            <img
+              src="/Icons/Undo.svg"
+              alt="Undo"
+              width={44}
+              height={44}
+              style={{ display: "block" }}
+            />
+            <img
+              src="/Icons/Undo-yellow.svg"
+              alt=""
+              width={44}
+              height={44}
+              style={{ display: "block" }}
+            />
+          </IconButton>
+          <IconButton
+            onClick={handleSave}
+            $disabled={saveState === "saving" || strokeCount === 0}
+          >
+            <img
+              src={
+                saveState === "saved"
+                  ? "/Icons/Save-yellow.svg"
+                  : "/Icons/Save.svg"
+              }
+              alt="Save"
+              width={44}
+              height={44}
+              style={{ display: "block" }}
+            />
+            <img
+              src="/Icons/Save-yellow.svg"
+              alt=""
+              width={44}
+              height={44}
+              style={{ display: "block" }}
+            />
+          </IconButton>
+        </WorkspaceHeader>
 
-        {/* weiße Linse — Schnittfläche der zwei Ovale, ergibt weißen Bereich für export */}
-        <ellipse
-          cx="50"
-          cy="46"
-          rx="69"
-          ry="46"
-          fill="white"
-          clipPath="url(#gallery-clip)"
-        />
+        <CanvasArea>
+          <div ref={containerRef} />
+        </CanvasArea>
+      </WorkspaceSection>
 
-        {/* großes Oval, Umriss  */}
-        <ellipse
-          cx="50"
-          cy="46"
-          rx="69"
-          ry="46"
-          fill="none"
-          stroke="white"
-          strokeWidth="1.5"
-          vectorEffect="non-scaling-stroke"
-        />
+      {/* ── Saved Designs ── */}
+      {savedDesigns.length > 0 && (
+        <GalleryContainer>
+          {savedDesigns.map((design) => (
+            <SavedSection
+              key={design._id}
+              onClick={() => handleEditDesign(design)}
+            >
+              <SavedImageWrapper
+                style={{ width: canvasSize.width, height: canvasSize.height }}
+              >
+                <div dangerouslySetInnerHTML={{ __html: design.svg }} />
+                <DeleteBtn
+                  onClick={(e) => handleDeleteDesign(e, design._id)}
+                  aria-label="Löschen"
+                >
+                  <img
+                    src="/Icons/Delete.svg"
+                    alt="Löschen"
+                    width={44}
+                    height={44}
+                    style={{ display: "block" }}
+                  />
+                  <img
+                    src="/Icons/Delete-yellow.svg"
+                    alt=""
+                    width={44}
+                    height={44}
+                    style={{ display: "block" }}
+                  />
+                </DeleteBtn>
+                <EditBtn
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditDesign(design);
+                  }}
+                  aria-label="Bearbeiten"
+                >
+                  <img
+                    src="/Icons/Edit.svg"
+                    alt="Bearbeiten"
+                    width={44}
+                    height={44}
+                    style={{ display: "block" }}
+                  />
+                  <img
+                    src="/Icons/Edit-yellow.svg"
+                    alt=""
+                    width={44}
+                    height={44}
+                    style={{ display: "block" }}
+                  />
+                </EditBtn>
+              </SavedImageWrapper>
+            </SavedSection>
+          ))}
+        </GalleryContainer>
+      )}
 
-        {/* Gallery-Oval-Umriss  */}
-      </BackgroundSVG>
+      {/* ── Toolbar (fixed) ── */}
+      <Toolbar $hidden={toolbarHidden}>
+        {/* Strich-Farbe */}
+        <ColorToolLabel data-label="stroke">
+          {/* Farbfläche hinter dem Rahmen */}
+          <svg
+            viewBox="0 0 154.12 154.74"
+            style={{
+              position: "absolute",
+              width: 79,
+              height: 105,
+              top: 9,
+              left: 7,
+              zIndex: 0,
+              transform: "translate(-1px, 10px)",
+            }}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            <ellipse
+              fill={strokeColor}
+              cx="77.59"
+              cy="77.37"
+              rx="77.59"
+              ry="70.46"
+            />
+          </svg>
+          {/* Blob-Rahmen darüber */}
+          <img
+            src="/Icons/BG-Color.svg"
+            alt="Strichfarbe"
+            width={92}
+            height={122}
+            style={{
+              display: "block",
+              position: "relative",
+              zIndex: 1,
+              transform: "translate(-1px, 10px)",
+            }}
+          />
+          <HiddenColorInput
+            value={strokeColor}
+            onChange={(e) => {
+              setStrokeColor(e.target.value);
+              strokeColorRef.current = e.target.value;
+            }}
+          />
+        </ColorToolLabel>
 
-      <Header>
-        <TitleOval>
-          <RainbowText text="kaleidoscope" />
-        </TitleOval>
-        <UndoOval onClick={handleUndo} disabled={strokeCount === 0}>
-          undo
-        </UndoOval>
-        <SaveOval
-          onClick={handleSave}
-          disabled={saveState === "saving" || strokeCount === 0}
-          $error={saveState === "error"}
+        {/* Hintergrund-Farbe */}
+        <ColorToolLabel
+          data-label="background"
+          style={{ marginLeft: 29, transform: "translate(-3px, -12px)" }}
         >
-          <SaveLabel>
-            {saveState === "saved" ? <RainbowText text="saved!" /> : saveLabel}
-          </SaveLabel>
-        </SaveOval>
-      </Header>
+          {/* Farbfläche hinter dem Rahmen */}
+          <svg
+            viewBox="0 0 154.12 154.74"
+            width={95}
+            height={126}
+            style={{ position: "absolute", inset: 0, zIndex: 0 }}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            <rect
+              fill={bgColor}
+              x="15.7"
+              y="12.02"
+              width="105.91"
+              height="129.6"
+            />
+          </svg>
+          {/* Blob-Rahmen darüber */}
+          <img
+            src="/Icons/Stroke-Color.svg"
+            alt="Hintergrundfarbe"
+            width={95}
+            height={126}
+            style={{ display: "block", position: "relative", zIndex: 1 }}
+          />
+          <HiddenColorInput
+            value={bgColor}
+            onChange={(e) => {
+              setBgColor(e.target.value);
+              bgColorRef.current = e.target.value;
+              if (p5Ref.current) redrawStrokes(p5Ref.current);
+            }}
+          />
+        </ColorToolLabel>
 
-      <CanvasSection>
-        <div ref={containerRef} />
-      </CanvasSection>
-
-      <Footer />
-
-      <GalleryOval $expanding={expanding} />
-
-      <StrokeColorPickerLabel>
-        brush
-        <ColorInput
-          type="color"
-          value={strokeColor}
-          onChange={(e) => {
-            setStrokeColor(e.target.value);
-            strokeColorRef.current = e.target.value;
+        {/* Blur Toggle */}
+        <BlurButton
+          $active={brushType === "airbrush"}
+          onClick={() => {
+            const next =
+              brushTypeRef.current === "normal" ? "airbrush" : "normal";
+            setBrushType(next);
+            brushTypeRef.current = next;
           }}
-        />
-      </StrokeColorPickerLabel>
+          style={{ marginLeft: 5 }}
+        >
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "#ffffff",
+              WebkitMaskImage: "url('/Icons/blur.svg')",
+              maskImage: "url('/Icons/blur.svg')",
+              WebkitMaskSize: "100% 100%",
+              maskSize: "100% 100%",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+            }}
+          />
+          <img
+            src="/Icons/blur.svg"
+            alt="Blur"
+            width={100}
+            height={133}
+            style={{ display: "block", position: "relative", zIndex: 1 }}
+          />
+          <ButtonLabel>blur</ButtonLabel>
+        </BlurButton>
 
-      <BgColorPickerLabel>
-        bg
-        <ColorInput
-          type="color"
-          value={bgColor}
-          onChange={(e) => {
-            setBgColor(e.target.value);
-            bgColorRef.current = e.target.value;
-            if (p5Ref.current) redrawStrokes(p5Ref.current);
-          }}
-        />
-      </BgColorPickerLabel>
+        <ToolbarSpacer />
 
-      <BrushButton
-        //toggle blur button
-        onClick={() => {
-          const next =
-            brushTypeRef.current === "normal" ? "airbrush" : "normal";
-          setBrushType(next);
-          brushTypeRef.current = next;
-        }}
-      >
-        {brushType === "airbrush" ? <RainbowText text="blur" /> : "blur"}
-      </BrushButton>
+        {/* Export-Buttons mit SVG-Rahmenformen */}
+        <ExportArea>
+          <ShapeButton onClick={handleExportJpg}>
+            <svg
+              viewBox="0 0 51.62 34.92"
+              width="85"
+              height="58"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M18.61,8.79l13.52-3.73s2.92-.95,6.63,2.05,6.63-1.5,6.63,6.18,6.63,13.52,1.59,14.32-13.26-.8-19.62,0-5.83,2.39-13.26,2.39H4.51s1.37-25.19,14.1-21.21Z" />
+            </svg>
+            <ButtonLabel>jpg</ButtonLabel>
+          </ShapeButton>
 
-      <ExportButton onClick={handleExport} disabled={strokeCount === 0}>
-        <RainbowText text="export" colors={RAINBOW_EXPORT} />
-      </ExportButton>
-
-      <GalleryButton onClick={handleGalleryNav}>gallery</GalleryButton>
-    </PageWrapper>
+          <ShapeButton onClick={handleExportPdf}>
+            <svg
+              viewBox="0 0 108.07 34.92"
+              width="175"
+              height="58"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M9.06,17.79s-3.52,9.24,8.85,10.27,40.57-3.78,40.57-3.78h13.75s4.13,5.5,10.32.69,19.47,2.23,17.41-1.55,2.9-19.65-4.32-16.21-15.79-1.14-25.47,0c-6.74.79-26.13,6.07-31.63,6.07s-10.32-3.09-16.16-3.09-16.75-6.84-14.1,1.03c1.97,5.85.77,6.58.77,6.58Z" />
+            </svg>
+            <ButtonLabel>postcard pdf</ButtonLabel>
+          </ShapeButton>
+        </ExportArea>
+      </Toolbar>
+    </ScrollContainer>
   );
 }

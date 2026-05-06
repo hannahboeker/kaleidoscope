@@ -6,14 +6,14 @@ export const SYMMETRY = 3;
 export const BG_COLOR = "#ffffff";
 export const STROKE_COLOR = "#0800ff";
 export const STROKE_WEIGHT = 3;
-export const HEADER_HEIGHT = 130;
-export const FOOTER_HEIGHT = 160;
+export const HEADER_HEIGHT = 70;
+export const FOOTER_HEIGHT = 190;
 
 // Größe Postkarte
 export function getSize() {
   const portrait = window.innerWidth <= BREAKPOINT;
   const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT;
-  const availableW = window.innerWidth;
+  const availableW = window.innerWidth - 4;
   const availableH = window.innerHeight - HEADER_HEIGHT - FOOTER_HEIGHT;
 
   let width = availableW;
@@ -50,7 +50,7 @@ export function buildSVG(strokes, canvasW, canvasH, bgColor = BG_COLOR) {
   const angleStep = (2 * Math.PI) / SYMMETRY;
 
   const glowPasses = (size) => [
-    { weight: size * 6,    opacity: 0.12 },
+    { weight: size * 6, opacity: 0.12 },
     { weight: size * 3.33, opacity: 0.24 },
     { weight: size * 1.33, opacity: 0.71 },
   ];
@@ -87,7 +87,7 @@ export function buildSVG(strokes, canvasW, canvasH, bgColor = BG_COLOR) {
 
         if (isAirbrush) {
           // Einzelne Segmente: bei langsamer Bewegung akkumulieren viele kurze Segmente
-          // → dicker Blob an Pause-Stellen, genau wie auf dem Canvas
+          // dicker Blob an Pause-Stellen, genau wie auf  Canvas
           result += `<g filter="url(#airbrush-glow)">\n`;
           for (let si = 1; si < points.length; si++) {
             const p0 = points[si - 1];

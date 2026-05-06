@@ -10,9 +10,5 @@ const Canvas = dynamic(() => import("../components/Canvas"), {
 });
 
 export default function Home() {
-  return (
-    <main>
-      <Canvas />
-    </main>
-  );
+  return <Canvas />;
 }
