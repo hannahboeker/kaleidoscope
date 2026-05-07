@@ -10,6 +10,7 @@ import {
   STROKE_WEIGHT,
   HEADER_HEIGHT,
   FOOTER_HEIGHT,
+  FOOTER_HEIGHT_MOBILE,
   getSize,
   buildSVG,
   drawStrokeSymmetric,
@@ -41,8 +42,8 @@ const WorkspaceHeader = styled.header`
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px 0;
+  align-items: flex-start;
+  padding: 4px 3% 0;
 `;
 
 const IconButton = styled.button`
@@ -73,9 +74,13 @@ const CanvasArea = styled.main`
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 5px 2px 0;
+  padding-bottom: ${FOOTER_HEIGHT}px;
+
+  @media (max-width: 430px) {
+    padding-bottom: ${FOOTER_HEIGHT_MOBILE}px;
+  }
 `;
 
 // TOOLBAR ──────────────────────────────────────────────────────────
@@ -88,9 +93,17 @@ const Toolbar = styled.div`
   height: ${FOOTER_HEIGHT}px;
   background: transparent;
   z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
   pointer-events: ${({ $hidden }) => ($hidden ? "none" : "auto")};
   transition: opacity 0.3s;
+
+  @media (max-width: 430px) {
+    height: ${FOOTER_HEIGHT_MOBILE}px;
+    overflow: hidden;
+  }
 `;
 
 const ColorToolLabel = styled.label`
@@ -172,7 +185,6 @@ const ToolbarInner = styled.div`
   display: flex;
   align-items: center;
   width: 100%;
-  height: 100%;
   padding: 0 4px 0 16px;
 
   @media (max-width: 430px) {
@@ -719,15 +731,15 @@ export default function Canvas() {
             <img
               src="/Icons/Undo.svg"
               alt="Undo"
-              width={44}
-              height={44}
+              width={36}
+              height={36}
               style={{ display: "block" }}
             />
             <img
               src="/Icons/Undo-yellow.svg"
               alt=""
-              width={44}
-              height={44}
+              width={36}
+              height={36}
               style={{ display: "block" }}
             />
           </IconButton>
@@ -739,15 +751,15 @@ export default function Canvas() {
                   : "/Icons/Save.svg"
               }
               alt="Save"
-              width={44}
-              height={44}
+              width={36}
+              height={36}
               style={{ display: "block" }}
             />
             <img
               src="/Icons/Save-yellow.svg"
               alt=""
-              width={44}
-              height={44}
+              width={36}
+              height={36}
               style={{ display: "block" }}
             />
           </IconButton>
