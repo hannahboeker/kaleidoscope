@@ -23,23 +23,62 @@ const PAGE_BG = "#999999";
 
 const ScrollContainer = styled.div`
   height: 100dvh;
-  overflow-y: scroll;
-  scroll-snap-type: y mandatory;
-  overscroll-behavior-y: contain;
+  width: 100vw;
+  display: flex;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
   background: ${PAGE_BG};
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  scrollbar-width: none;
 `;
 
 const WorkspaceSection = styled.section`
   height: 100dvh;
+  width: 100vw;
+  flex-shrink: 0;
   scroll-snap-align: start;
   background: ${PAGE_BG};
   display: flex;
   flex-direction: column;
+  padding-top: ${HEADER_HEIGHT}px;
+`;
+
+const DesignSlide = styled.section`
+  height: 100dvh;
+  width: 100vw;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  background: ${PAGE_BG};
+  display: flex;
+  flex-direction: column;
+  padding-top: ${HEADER_HEIGHT}px;
+`;
+
+const DesignContent = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: ${FOOTER_HEIGHT}px;
+
+  @media (max-width: 430px) {
+    padding-bottom: ${FOOTER_HEIGHT_MOBILE}px;
+  }
 `;
 
 const WorkspaceHeader = styled.header`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   height: ${HEADER_HEIGHT}px;
-  flex-shrink: 0;
+  z-index: 200;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -96,9 +135,6 @@ const Toolbar = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
-  opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
-  pointer-events: ${({ $hidden }) => ($hidden ? "none" : "auto")};
-  transition: opacity 0.3s;
 
   @media (max-width: 430px) {
     height: ${FOOTER_HEIGHT_MOBILE}px;
@@ -203,7 +239,6 @@ const ExportArea = styled.div`
   z-index: 1;
 `;
 
-// Export-Button mit SVG-Rahmenform als Hintergrund
 const ShapeButton = styled.button`
   position: relative;
   background: none;
@@ -248,85 +283,13 @@ const ButtonLabel = styled.span`
   pointer-events: none;
 `;
 
-// SAVED DESIGN ────────────────────────────────────────────────────────────
-
-const GalleryContainer = styled.div`
-  scroll-snap-align: start;
-`;
-
-const SavedSection = styled.section`
-  background: ${PAGE_BG};
-  padding: 6px 0;
-  display: flex;
-  justify-content: center;
-`;
-
-const SavedImageWrapper = styled.div`
-  position: relative;
-  cursor: pointer;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-
-  & > div {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  & > div > svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  button {
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  &:hover button {
-    opacity: 1;
-  }
-`;
-
-const ActionBtn = styled.button`
-  position: absolute;
-  top: 10px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  line-height: 0;
-
-  img + img {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  &:hover img:first-child {
-    opacity: 0;
-  }
-
-  &:hover img + img {
-    opacity: 1;
-  }
-`;
-
-const DeleteBtn = styled(ActionBtn)`
-  left: 10px;
-`;
-
-const EditBtn = styled(ActionBtn)`
-  right: 10px;
-`;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Canvas() {
-  const containerRef = useRef(null);
+  const containerRef = useRef(null);   // workspace canvas mount
+  const canvasElRef = useRef(null);    // raw <canvas> DOM element (set on p5 setup)
+  const slideMountRefs = useRef(new Map()); // designId → gallery slide mount div
   const scrollRef = useRef(null);
   const p5Ref = useRef(null);
   const strokesRef = useRef([]);
@@ -340,10 +303,8 @@ export default function Canvas() {
   const [bgColor, setBgColor] = useState(BG_COLOR);
   const [brushType, setBrushType] = useState("normal");
   const [savedDesigns, setSavedDesigns] = useState([]);
-  const [toolbarHidden, setToolbarHidden] = useState(false);
   const [canvasSize, setCanvasSize] = useState(() => getSize());
   const [currentDesignId, setCurrentDesignId] = useState(null);
-  const workspaceRef = useRef(null);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -381,24 +342,9 @@ export default function Canvas() {
     }
   }, []);
 
-  // ── Load gallery on mount ──────────────────────────────────────────────────
-
   useEffect(() => {
     loadDesigns();
   }, [loadDesigns]);
-
-  // ── Toolbar ausblenden wenn Galerie sichtbar ───────────────────────────────
-
-  useEffect(() => {
-    const el = workspaceRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setToolbarHidden(!entry.isIntersecting),
-      { threshold: 0.1 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   // ── p5 setup ───────────────────────────────────────────────────────────────
 
@@ -413,6 +359,7 @@ export default function Canvas() {
         const { width, height } = getSize();
         const canvasElement = sketch.createCanvas(width, height);
         canvasElement.style("display", "block");
+        canvasElRef.current = canvasElement.elt; // store raw DOM element
         sketch.background(bgColorRef.current);
         sketch.strokeCap(sketch.ROUND);
         sketch.angleMode(sketch.DEGREES);
@@ -483,19 +430,9 @@ export default function Canvas() {
             for (let i = 0; i < SYMMETRY; i++) {
               sketch.push();
               sketch.rotate(angleStep * i);
-              sketch.line(
-                prev.x * scale,
-                prev.y * scale,
-                point.x * scale,
-                point.y * scale,
-              );
+              sketch.line(prev.x * scale, prev.y * scale, point.x * scale, point.y * scale);
               sketch.scale(1, -1);
-              sketch.line(
-                prev.x * scale,
-                prev.y * scale,
-                point.x * scale,
-                point.y * scale,
-              );
+              sketch.line(prev.x * scale, prev.y * scale, point.x * scale, point.y * scale);
               sketch.pop();
             }
           }
@@ -505,19 +442,9 @@ export default function Canvas() {
             sketch.rotate(angleStep * i);
             sketch.stroke(strokeColorRef.current);
             sketch.strokeWeight(STROKE_WEIGHT);
-            sketch.line(
-              prev.x * scale,
-              prev.y * scale,
-              point.x * scale,
-              point.y * scale,
-            );
+            sketch.line(prev.x * scale, prev.y * scale, point.x * scale, point.y * scale);
             sketch.scale(1, -1);
-            sketch.line(
-              prev.x * scale,
-              prev.y * scale,
-              point.x * scale,
-              point.y * scale,
-            );
+            sketch.line(prev.x * scale, prev.y * scale, point.x * scale, point.y * scale);
             sketch.pop();
           }
         }
@@ -549,8 +476,73 @@ export default function Canvas() {
     return () => {
       instance.remove();
       p5Ref.current = null;
+      canvasElRef.current = null;
     };
   }, [redrawStrokes]);
+
+  // ── Canvas teleportation: move the canvas DOM node into whichever slide
+  //    is currently snapped into view. This keeps scroll behaviour identical
+  //    to a normal in-flow element while enabling in-place editing on every slide.
+  const loadDesign = useCallback(
+    (design) => {
+      const rawStrokes = design.strokes ?? [];
+      strokesRef.current = rawStrokes.map((s) =>
+        Array.isArray(s)
+          ? { points: s, color: STROKE_COLOR, type: "normal", size: STROKE_WEIGHT }
+          : {
+              points: s.points ?? [],
+              color: s.color ?? STROKE_COLOR,
+              type: s.type ?? "normal",
+              size: s.size ?? STROKE_WEIGHT,
+            },
+      );
+      const loadedBgColor = design.bgColor ?? BG_COLOR;
+      bgColorRef.current = loadedBgColor;
+      setBgColor(loadedBgColor);
+      setStrokeCount(strokesRef.current.length);
+      setCurrentDesignId(design._id);
+      if (p5Ref.current) redrawStrokes(p5Ref.current);
+    },
+    [redrawStrokes],
+  );
+
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+
+    let timeout;
+    const handleScroll = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        const canvas = canvasElRef.current;
+        if (!canvas) return;
+
+        const slideIndex = Math.round(scroll.scrollLeft / scroll.clientWidth);
+
+        if (slideIndex === 0) {
+          // Return canvas to workspace mount
+          if (containerRef.current && !containerRef.current.contains(canvas)) {
+            containerRef.current.appendChild(canvas);
+          }
+          setCurrentDesignId(null);
+        } else {
+          const design = savedDesigns[slideIndex - 1];
+          if (!design) return;
+          const mount = slideMountRefs.current.get(design._id);
+          if (mount && !mount.contains(canvas)) {
+            mount.appendChild(canvas);
+          }
+          loadDesign(design);
+        }
+      }, 100);
+    };
+
+    scroll.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      scroll.removeEventListener("scroll", handleScroll);
+      clearTimeout(timeout);
+    };
+  }, [savedDesigns, loadDesign]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -598,7 +590,6 @@ export default function Canvas() {
       };
 
       let response;
-
       if (currentDesignId) {
         response = await fetch(
           `/api/design/${currentDesignId}?userId=${userId}`,
@@ -623,6 +614,12 @@ export default function Canvas() {
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
       await loadDesigns();
+      // Return canvas to workspace after saving
+      const rawCanvas = canvasElRef.current;
+      if (rawCanvas && containerRef.current && !containerRef.current.contains(rawCanvas)) {
+        containerRef.current.appendChild(rawCanvas);
+      }
+      scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
       clearCanvas();
     } catch (err) {
       console.error(err);
@@ -632,7 +629,7 @@ export default function Canvas() {
   };
 
   const handleExportJpg = () => {
-    const el = containerRef.current?.querySelector("canvas");
+    const el = canvasElRef.current;
     if (!el) return;
     const a = document.createElement("a");
     a.href = el.toDataURL("image/jpeg", 0.95);
@@ -674,34 +671,7 @@ export default function Canvas() {
     }
   };
 
-  const handleEditDesign = (design) => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    const rawStrokes = design.strokes ?? [];
-    strokesRef.current = rawStrokes.map((s) =>
-      Array.isArray(s)
-        ? {
-            points: s,
-            color: STROKE_COLOR,
-            type: "normal",
-            size: STROKE_WEIGHT,
-          }
-        : {
-            points: s.points ?? [],
-            color: s.color ?? STROKE_COLOR,
-            type: s.type ?? "normal",
-            size: s.size ?? STROKE_WEIGHT,
-          },
-    );
-    const loadedBgColor = design.bgColor ?? BG_COLOR;
-    bgColorRef.current = loadedBgColor;
-    setBgColor(loadedBgColor);
-    setStrokeCount(strokesRef.current.length);
-    setCurrentDesignId(design._id);
-    if (p5Ref.current) redrawStrokes(p5Ref.current);
-  };
-
-  const handleDeleteDesign = async (e, id) => {
-    e.stopPropagation();
+  const handleDeleteDesign = async (id) => {
     if (!window.confirm("Delete this design?")) return;
     try {
       const userId = getUserId();
@@ -709,12 +679,17 @@ export default function Canvas() {
         method: "DELETE",
       });
       if (!res.ok && res.status !== 404) {
-        const body = await res.json().catch(() => ({}));
-        console.error("Delete failed", res.status, body);
+        console.error("Delete failed", res.status);
         return;
       }
-      if (currentDesignId === id) clearCanvas();
+      // Return canvas to workspace before clearing
+      const rawCanvas = canvasElRef.current;
+      if (rawCanvas && containerRef.current && !containerRef.current.contains(rawCanvas)) {
+        containerRef.current.appendChild(rawCanvas);
+      }
+      clearCanvas();
       await loadDesigns();
+      scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
     } catch (err) {
       console.error(err);
     }
@@ -724,150 +699,78 @@ export default function Canvas() {
 
   return (
     <ScrollContainer ref={scrollRef}>
-      {/* ── Workspace ── */}
-      <WorkspaceSection ref={workspaceRef}>
-        <WorkspaceHeader>
-          <IconButton onClick={handleUndo}>
-            <img
-              src="/Icons/Undo.svg"
-              alt="Undo"
-              width={36}
-              height={36}
-              style={{ display: "block" }}
-            />
-            <img
-              src="/Icons/Undo-yellow.svg"
-              alt=""
-              width={36}
-              height={36}
-              style={{ display: "block" }}
-            />
+      {/* ── Header (fixed across all slides) ── */}
+      <WorkspaceHeader>
+        <IconButton onClick={handleUndo}>
+          <img src="/Icons/Undo.svg" alt="Undo" width={36} height={36} style={{ display: "block" }} />
+          <img src="/Icons/Undo-yellow.svg" alt="" width={36} height={36} style={{ display: "block" }} />
+        </IconButton>
+        {currentDesignId && (
+          <IconButton onClick={() => handleDeleteDesign(currentDesignId)} aria-label="Löschen">
+            <img src="/Icons/Delete.svg" alt="Löschen" width={36} height={36} style={{ display: "block" }} />
+            <img src="/Icons/Delete-yellow.svg" alt="" width={36} height={36} style={{ display: "block" }} />
           </IconButton>
-          <IconButton onClick={handleSave}>
-            <img
-              src={
-                saveState === "saved"
-                  ? "/Icons/Save-yellow.svg"
-                  : "/Icons/Save.svg"
-              }
-              alt="Save"
-              width={36}
-              height={36}
-              style={{ display: "block" }}
-            />
-            <img
-              src="/Icons/Save-yellow.svg"
-              alt=""
-              width={36}
-              height={36}
-              style={{ display: "block" }}
-            />
-          </IconButton>
-        </WorkspaceHeader>
+        )}
+        <IconButton onClick={handleSave}>
+          <img
+            src={saveState === "saved" ? "/Icons/Save-yellow.svg" : "/Icons/Save.svg"}
+            alt="Save"
+            width={36}
+            height={36}
+            style={{ display: "block" }}
+          />
+          <img src="/Icons/Save-yellow.svg" alt="" width={36} height={36} style={{ display: "block" }} />
+        </IconButton>
+      </WorkspaceHeader>
 
+      {/* ── Workspace (canvas lives here by default) ── */}
+      <WorkspaceSection>
         <CanvasArea>
           <div ref={containerRef} />
         </CanvasArea>
       </WorkspaceSection>
 
-      {/* ── Saved Designs ── */}
-      {savedDesigns.length > 0 && (
-        <GalleryContainer>
-          {savedDesigns.map((design) => (
-            <SavedSection
-              key={design._id}
-              onClick={() => handleEditDesign(design)}
-            >
-              <SavedImageWrapper
-                style={{ width: canvasSize.width, height: canvasSize.height }}
-              >
-                <div dangerouslySetInnerHTML={{ __html: design.svg }} />
-                <DeleteBtn
-                  onClick={(e) => handleDeleteDesign(e, design._id)}
-                  aria-label="Löschen"
-                >
-                  <img
-                    src="/Icons/Delete.svg"
-                    alt="Löschen"
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                  <img
-                    src="/Icons/Delete-yellow.svg"
-                    alt=""
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                </DeleteBtn>
-                <EditBtn
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditDesign(design);
-                  }}
-                  aria-label="Bearbeiten"
-                >
-                  <img
-                    src="/Icons/Edit.svg"
-                    alt="Bearbeiten"
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                  <img
-                    src="/Icons/Edit-yellow.svg"
-                    alt=""
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                </EditBtn>
-              </SavedImageWrapper>
-            </SavedSection>
-          ))}
-        </GalleryContainer>
-      )}
+      {/* ── Gallery slides ── */}
+      {savedDesigns.map((design) => (
+        <DesignSlide key={design._id}>
+          <DesignContent>
+            {/* Wrapper positions SVG behind canvas mount */}
+            <div style={{ position: "relative", width: canvasSize.width, height: canvasSize.height }}>
+              {/* SVG preview: visible while canvas is in another slide */}
+              <div
+                style={{ position: "absolute", inset: 0 }}
+                dangerouslySetInnerHTML={{ __html: design.svg }}
+              />
+              {/* Canvas mount: canvas is teleported here on scroll snap */}
+              <div
+                ref={(el) => {
+                  if (el) slideMountRefs.current.set(design._id, el);
+                  else slideMountRefs.current.delete(design._id);
+                }}
+                style={{ position: "absolute", inset: 0 }}
+              />
+            </div>
+          </DesignContent>
+        </DesignSlide>
+      ))}
 
       {/* ── Toolbar (fixed) ── */}
-      <Toolbar $hidden={toolbarHidden}>
+      <Toolbar>
         <ToolbarInner>
-        {/* Strich-Farbe */}
         <ColorToolLabel data-label="stroke">
-          {/* Farbfläche hinter dem Rahmen */}
           <svg
             viewBox="0 0 154.12 154.74"
-            style={{
-              position: "absolute",
-              width: 79,
-              height: 105,
-              top: 9,
-              left: 7,
-              zIndex: 0,
-              transform: "translate(-1px, 10px)",
-            }}
+            style={{ position: "absolute", width: 79, height: 105, top: 9, left: 7, zIndex: 0, transform: "translate(-1px, 10px)" }}
             preserveAspectRatio="xMidYMid meet"
           >
-            <ellipse
-              fill={strokeColor}
-              cx="77.59"
-              cy="77.37"
-              rx="77.59"
-              ry="70.46"
-            />
+            <ellipse fill={strokeColor} cx="77.59" cy="77.37" rx="77.59" ry="70.46" />
           </svg>
-          {/* Blob-Rahmen darüber */}
           <img
             src="/Icons/BG-Color.svg"
             alt="Strichfarbe"
             width={92}
             height={122}
-            style={{
-              display: "block",
-              position: "relative",
-              zIndex: 1,
-              transform: "translate(-1px, 10px)",
-            }}
+            style={{ display: "block", position: "relative", zIndex: 1, transform: "translate(-1px, 10px)" }}
           />
           <HiddenColorInput
             value={strokeColor}
@@ -878,12 +781,10 @@ export default function Canvas() {
           />
         </ColorToolLabel>
 
-        {/* Hintergrund-Farbe */}
         <ColorToolLabel
           data-label="background"
           style={{ marginLeft: 29, transform: "translate(-3px, -12px)" }}
         >
-          {/* Farbfläche hinter dem Rahmen */}
           <svg
             viewBox="0 0 154.12 154.74"
             width={95}
@@ -891,15 +792,8 @@ export default function Canvas() {
             style={{ position: "absolute", inset: 0, zIndex: 0 }}
             preserveAspectRatio="xMidYMid meet"
           >
-            <rect
-              fill={bgColor}
-              x="15.7"
-              y="12.02"
-              width="105.91"
-              height="129.6"
-            />
+            <rect fill={bgColor} x="15.7" y="12.02" width="105.91" height="129.6" />
           </svg>
-          {/* Blob-Rahmen darüber */}
           <img
             src="/Icons/Stroke-Color.svg"
             alt="Hintergrundfarbe"
@@ -917,12 +811,10 @@ export default function Canvas() {
           />
         </ColorToolLabel>
 
-        {/* Blur Toggle */}
         <BlurButton
           $active={brushType === "airbrush"}
           onClick={() => {
-            const next =
-              brushTypeRef.current === "normal" ? "airbrush" : "normal";
+            const next = brushTypeRef.current === "normal" ? "airbrush" : "normal";
             setBrushType(next);
             brushTypeRef.current = next;
           }}
@@ -931,50 +823,28 @@ export default function Canvas() {
           <div
             aria-hidden="true"
             style={{
-              position: "absolute",
-              inset: 0,
-              background: "#ffffff",
-              WebkitMaskImage: "url('/Icons/blur.svg')",
-              maskImage: "url('/Icons/blur.svg')",
-              WebkitMaskSize: "100% 100%",
-              maskSize: "100% 100%",
-              WebkitMaskRepeat: "no-repeat",
-              maskRepeat: "no-repeat",
+              position: "absolute", inset: 0, background: "#ffffff",
+              WebkitMaskImage: "url('/Icons/blur.svg')", maskImage: "url('/Icons/blur.svg')",
+              WebkitMaskSize: "100% 100%", maskSize: "100% 100%",
+              WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat",
             }}
           />
-          <img
-            src="/Icons/blur.svg"
-            alt="Blur"
-            width={100}
-            height={133}
-            style={{ display: "block", position: "relative", zIndex: 1 }}
-          />
+          <img src="/Icons/blur.svg" alt="Blur" width={100} height={133} style={{ display: "block", position: "relative", zIndex: 1 }} />
           <ButtonLabel>blur</ButtonLabel>
         </BlurButton>
 
         <ToolbarSpacer />
 
-        {/* Export-Buttons mit SVG-Rahmenformen */}
         <ExportArea>
           <ShapeButton onClick={handleExportJpg}>
-            <svg
-              viewBox="0 0 51.62 34.92"
-              width="85"
-              height="58"
-              xmlns="http://www.w3.org/2000/svg"
-            >
+            <svg viewBox="0 0 51.62 34.92" width="85" height="58" xmlns="http://www.w3.org/2000/svg">
               <path d="M18.61,8.79l13.52-3.73s2.92-.95,6.63,2.05,6.63-1.5,6.63,6.18,6.63,13.52,1.59,14.32-13.26-.8-19.62,0-5.83,2.39-13.26,2.39H4.51s1.37-25.19,14.1-21.21Z" />
             </svg>
             <ButtonLabel>jpg</ButtonLabel>
           </ShapeButton>
 
           <ShapeButton onClick={handleExportPdf}>
-            <svg
-              viewBox="0 0 108.07 34.92"
-              width="175"
-              height="58"
-              xmlns="http://www.w3.org/2000/svg"
-            >
+            <svg viewBox="0 0 108.07 34.92" width="175" height="58" xmlns="http://www.w3.org/2000/svg">
               <path d="M9.06,17.79s-3.52,9.24,8.85,10.27,40.57-3.78,40.57-3.78h13.75s4.13,5.5,10.32.69,19.47,2.23,17.41-1.55,2.9-19.65-4.32-16.21-15.79-1.14-25.47,0c-6.74.79-26.13,6.07-31.63,6.07s-10.32-3.09-16.16-3.09-16.75-6.84-14.1,1.03c1.97,5.85.77,6.58.77,6.58Z" />
             </svg>
             <ButtonLabel>postcard pdf</ButtonLabel>
