@@ -6,6 +6,11 @@ export const metadata = {
   description: "Design kaleidoscopic postcards. Write to your friends!",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
