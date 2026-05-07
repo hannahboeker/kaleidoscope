@@ -52,7 +52,6 @@ const IconButton = styled.button`
   padding: 0;
   cursor: pointer;
   line-height: 0;
-  ${({ $disabled }) => $disabled && "pointer-events: none;"}
 
   img + img {
     position: absolute;
@@ -89,9 +88,6 @@ const Toolbar = styled.div`
   height: ${FOOTER_HEIGHT}px;
   background: transparent;
   z-index: 100;
-  display: flex;
-  align-items: center;
-  padding: 0 4px 0 16px;
   opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
   pointer-events: ${({ $hidden }) => ($hidden ? "none" : "auto")};
   transition: opacity 0.3s;
@@ -170,6 +166,19 @@ const BlurButton = styled.button`
 
 const ToolbarSpacer = styled.div`
   flex: 1;
+`;
+
+const ToolbarInner = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 4px 0 16px;
+
+  @media (max-width: 430px) {
+    transform: scale(0.7);
+    transform-origin: left center;
+  }
 `;
 
 const ExportArea = styled.div`
@@ -579,15 +588,18 @@ export default function Canvas() {
       let response;
 
       if (currentDesignId) {
-        response = await fetch(`/api/design/${currentDesignId}?userId=${userId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            svg,
-            strokes: strokesRef.current,
-            bgColor: bgColorRef.current,
-          }),
-        });
+        response = await fetch(
+          `/api/design/${currentDesignId}?userId=${userId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              svg,
+              strokes: strokesRef.current,
+              bgColor: bgColorRef.current,
+            }),
+          },
+        );
         if (response.status === 404) {
           response = await fetch("/api/design/save", postOpts);
         }
@@ -655,7 +667,12 @@ export default function Canvas() {
     const rawStrokes = design.strokes ?? [];
     strokesRef.current = rawStrokes.map((s) =>
       Array.isArray(s)
-        ? { points: s, color: STROKE_COLOR, type: "normal", size: STROKE_WEIGHT }
+        ? {
+            points: s,
+            color: STROKE_COLOR,
+            type: "normal",
+            size: STROKE_WEIGHT,
+          }
         : {
             points: s.points ?? [],
             color: s.color ?? STROKE_COLOR,
@@ -698,7 +715,7 @@ export default function Canvas() {
       {/* ── Workspace ── */}
       <WorkspaceSection ref={workspaceRef}>
         <WorkspaceHeader>
-          <IconButton onClick={handleUndo} $disabled={strokeCount === 0}>
+          <IconButton onClick={handleUndo}>
             <img
               src="/Icons/Undo.svg"
               alt="Undo"
@@ -714,10 +731,7 @@ export default function Canvas() {
               style={{ display: "block" }}
             />
           </IconButton>
-          <IconButton
-            onClick={handleSave}
-            $disabled={saveState === "saving" || strokeCount === 0}
-          >
+          <IconButton onClick={handleSave}>
             <img
               src={
                 saveState === "saved"
@@ -805,6 +819,7 @@ export default function Canvas() {
 
       {/* ── Toolbar (fixed) ── */}
       <Toolbar $hidden={toolbarHidden}>
+        <ToolbarInner>
         {/* Strich-Farbe */}
         <ColorToolLabel data-label="stroke">
           {/* Farbfläche hinter dem Rahmen */}
@@ -953,6 +968,7 @@ export default function Canvas() {
             <ButtonLabel>postcard pdf</ButtonLabel>
           </ShapeButton>
         </ExportArea>
+        </ToolbarInner>
       </Toolbar>
     </ScrollContainer>
   );
