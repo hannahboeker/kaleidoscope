@@ -15,8 +15,9 @@
 html,
 body {
   height: 100%;
+  overflow: hidden;
   font-family: "Neumarkt", serif;
-  background: #000;
+  background: #999;
   color: #fff;
   letter-spacing: 0.09em;
 }
