@@ -351,12 +351,34 @@ export default function Canvas() {
   useEffect(() => {
     if (p5Ref.current) return;
 
+    // Native touch handlers — live outside p5 so iOS Safari sees them
+    // before making the scroll/no-scroll decision.
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let drawingLocked = false; // true once gesture confirmed as drawing
+    let canvasElRef = null;
+
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        drawingLocked = false;
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (drawingLocked) { e.preventDefault(); return; }
+      const dx = Math.abs(e.touches[0].clientX - touchStartX);
+      const dy = Math.abs(e.touches[0].clientY - touchStartY);
+      if (dx < 8 && dy < 8) return; // too small to decide yet
+      if (dx > dy * 2.5) return;    // clearly horizontal → allow scroll
+      drawingLocked = true;
+      e.preventDefault();
+    };
+
     const sketchDefinition = (sketch) => {
       let currentStroke = [];
       let isDrawing = false;
-      let gestureStartX = 0;
-      let gestureStartY = 0;
-      let gestureDecided = false; // true once we know: draw or swipe
 
       sketch.setup = () => {
         const { width, height } = getSize();
@@ -368,6 +390,9 @@ export default function Canvas() {
         sketch.noLoop();
         setCanvasSize({ width, height });
         if (strokesRef.current.length > 0) redrawStrokes(sketch);
+        canvasElRef = canvasElement.elt;
+        canvasElRef.addEventListener("touchstart", onTouchStart, { passive: true });
+        canvasElRef.addEventListener("touchmove", onTouchMove, { passive: false });
       };
 
       sketch.windowResized = () => {
@@ -385,11 +410,8 @@ export default function Canvas() {
           sketch.mouseY > sketch.height
         )
           return;
+        isDrawing = true;
         const scale = Math.max(sketch.width, sketch.height) / 2;
-        gestureStartX = sketch.mouseX;
-        gestureStartY = sketch.mouseY;
-        gestureDecided = sketch.touches.length === 0; // on mouse: decide immediately
-        isDrawing = sketch.touches.length === 0;      // on mouse: start drawing right away
         currentStroke = [
           {
             x: (sketch.mouseX - sketch.width / 2) / scale,
@@ -459,12 +481,10 @@ export default function Canvas() {
       sketch.mouseReleased = () => {
         if (!isDrawing || currentStroke.length < 2) {
           isDrawing = false;
-          gestureDecided = false;
           currentStroke = [];
           return;
         }
         isDrawing = false;
-        gestureDecided = false;
         strokesRef.current.push({
           points: [...currentStroke],
           color: strokeColorRef.current,
@@ -474,22 +494,9 @@ export default function Canvas() {
         currentStroke = [];
       };
 
-      sketch.touchMoved = () => {
-        // Decide gesture type on first significant movement
-        if (!gestureDecided) {
-          const dx = Math.abs(sketch.mouseX - gestureStartX);
-          const dy = Math.abs(sketch.mouseY - gestureStartY);
-          if (dx < 8 && dy < 8) return; // too little movement to decide yet
-          gestureDecided = true;
-          if (dx > dy) {
-            // Horizontal dominant → swipe, cancel any pending stroke
-            currentStroke = [];
-            return; // don't preventDefault → browser scroll snap takes over
-          }
-          isDrawing = true; // confirmed as drawing gesture
-        }
-        if (isDrawing) return false; // prevent scroll while drawing
-      };
+      // touchMoved intentionally empty — scroll prevention is handled
+      // by the native onTouchMove listener added in setup.
+      sketch.touchMoved = () => {};
     };
 
     const canvasDiv = document.createElement('div');
@@ -503,6 +510,8 @@ export default function Canvas() {
     p5Ref.current = instance;
 
     return () => {
+      canvasElRef?.removeEventListener("touchstart", onTouchStart);
+      canvasElRef?.removeEventListener("touchmove", onTouchMove);
       instance.remove();
       canvasDiv.remove();
       p5Ref.current = null;
