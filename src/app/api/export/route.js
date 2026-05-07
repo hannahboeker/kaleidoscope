@@ -43,11 +43,6 @@ export async function POST(request) {
     const backSecondary = bgColor === "#ffffff" ? strokeColor : bgColor;
     backSvg = backSvg.replaceAll(SVG_COLOR_PRIMARY, backPrimary);
     backSvg = backSvg.replaceAll(SVG_COLOR_SECONDARY, backSecondary);
-    // viewBox auf den tatsächlichen Inhalt zuschneiden (SVG-Canvas hat sonst große Ränder)
-    backSvg = backSvg.replace(
-      /viewBox="[^"]*"/,
-      'viewBox="103.37 64.98 1748.47 1240.47"',
-    );
 
     //Buffer sind binäre Daten
     const backPng = await sharp(Buffer.from(backSvg))

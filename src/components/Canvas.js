@@ -287,9 +287,9 @@ const ButtonLabel = styled.span`
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Canvas() {
-  const containerRef = useRef(null);   // workspace canvas mount
-  const canvasElRef = useRef(null);    // raw <canvas> DOM element (set on p5 setup)
-  const slideMountRefs = useRef(new Map()); // designId → gallery slide mount div
+  const containerRef = useRef(null);
+  const workspaceAreaRef = useRef(null);
+  const galleryAreaRefs = useRef([]);
   const scrollRef = useRef(null);
   const p5Ref = useRef(null);
   const strokesRef = useRef([]);
@@ -354,16 +354,11 @@ export default function Canvas() {
     const sketchDefinition = (sketch) => {
       let currentStroke = [];
       let isDrawing = false;
-      let pendingPoint = null;
-      let gestureType = null; // null | "draw" | "scroll"
-      let gestureStartX = 0;
-      let gestureStartY = 0;
 
       sketch.setup = () => {
         const { width, height } = getSize();
         const canvasElement = sketch.createCanvas(width, height);
         canvasElement.style("display", "block");
-        canvasElRef.current = canvasElement.elt; // store raw DOM element
         sketch.background(bgColorRef.current);
         sketch.strokeCap(sketch.ROUND);
         sketch.angleMode(sketch.DEGREES);
@@ -387,34 +382,18 @@ export default function Canvas() {
           sketch.mouseY > sketch.height
         )
           return;
+        isDrawing = true;
         const scale = Math.max(sketch.width, sketch.height) / 2;
-        pendingPoint = {
-          x: (sketch.mouseX - sketch.width / 2) / scale,
-          y: (sketch.mouseY - sketch.height / 2) / scale,
-        };
-        gestureType = null;
-        gestureStartX = sketch.mouseX;
-        gestureStartY = sketch.mouseY;
+        currentStroke = [
+          {
+            x: (sketch.mouseX - sketch.width / 2) / scale,
+            y: (sketch.mouseY - sketch.height / 2) / scale,
+          },
+        ];
       };
 
       sketch.mouseDragged = () => {
-        if (!pendingPoint) return;
-
-        // Determine gesture after enough movement — strongly horizontal = scroll
-        if (gestureType === null) {
-          const dx = Math.abs(sketch.mouseX - gestureStartX);
-          const dy = Math.abs(sketch.mouseY - gestureStartY);
-          if (dx < 8 && dy < 8) return;
-          gestureType = dx > dy * 1.2 ? "scroll" : "draw";
-        }
-
-        if (gestureType !== "draw") return;
-
-        if (!isDrawing) {
-          isDrawing = true;
-          currentStroke = [pendingPoint];
-        }
-
+        if (!isDrawing) return;
         if (
           sketch.mouseX < 0 ||
           sketch.mouseX > sketch.width ||
@@ -472,8 +451,6 @@ export default function Canvas() {
       };
 
       sketch.mouseReleased = () => {
-        pendingPoint = null;
-        gestureType = null;
         if (!isDrawing || currentStroke.length < 2) {
           isDrawing = false;
           currentStroke = [];
@@ -489,23 +466,32 @@ export default function Canvas() {
         currentStroke = [];
       };
 
-      // Allow horizontal swipe for gallery navigation; block scroll only during drawing
-      sketch.touchMoved = () => gestureType === "draw" ? false : true;
+      sketch.touchMoved = () => {
+        if (isDrawing) return false;
+      };
     };
 
-    const instance = new p5(sketchDefinition, containerRef.current);
+    const canvasDiv = document.createElement('div');
+    canvasDiv.style.display = 'flex';
+    canvasDiv.style.alignItems = 'center';
+    canvasDiv.style.justifyContent = 'center';
+    containerRef.current = canvasDiv;
+    workspaceAreaRef.current.appendChild(canvasDiv);
+
+    const instance = new p5(sketchDefinition, canvasDiv);
     p5Ref.current = instance;
 
     return () => {
       instance.remove();
+      canvasDiv.remove();
       p5Ref.current = null;
-      canvasElRef.current = null;
     };
   }, [redrawStrokes]);
 
-  // ── Canvas teleportation: move the canvas DOM node into whichever slide
-  //    is currently snapped into view. This keeps scroll behaviour identical
-  //    to a normal in-flow element while enabling in-place editing on every slide.
+  // ── Auto-load design when gallery slide snaps into view ───────────────────
+  // Canvas stays in WorkspaceSection — no teleportation, no scroll interference.
+  // User swipes to preview a design → it loads silently → swipe back to draw.
+
   const loadDesign = useCallback(
     (design) => {
       const rawStrokes = design.strokes ?? [];
@@ -529,53 +515,6 @@ export default function Canvas() {
     [redrawStrokes],
   );
 
-  useEffect(() => {
-    const scroll = scrollRef.current;
-    if (!scroll) return;
-
-    let timeout;
-    const handleScroll = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        const canvas = canvasElRef.current;
-        if (!canvas) return;
-
-        const slideIndex = Math.round(scroll.scrollLeft / scroll.clientWidth);
-
-        if (slideIndex === 0) {
-          // Return canvas to workspace mount
-          if (containerRef.current && !containerRef.current.contains(canvas)) {
-            containerRef.current.appendChild(canvas);
-          }
-          setCurrentDesignId(null);
-        } else {
-          const design = savedDesigns[slideIndex - 1];
-          if (!design) return;
-          const mount = slideMountRefs.current.get(design._id);
-          if (mount && !mount.contains(canvas)) {
-            mount.appendChild(canvas);
-          }
-          loadDesign(design);
-        }
-      }, 100);
-    };
-
-    scroll.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      scroll.removeEventListener("scroll", handleScroll);
-      clearTimeout(timeout);
-    };
-  }, [savedDesigns, loadDesign]);
-
-  // ── Handlers ───────────────────────────────────────────────────────────────
-
-  const handleUndo = () => {
-    if (strokesRef.current.length === 0) return;
-    strokesRef.current.pop();
-    setStrokeCount(strokesRef.current.length);
-    if (p5Ref.current) redrawStrokes(p5Ref.current);
-  };
-
   const clearCanvas = useCallback(() => {
     strokesRef.current = [];
     bgColorRef.current = BG_COLOR;
@@ -586,6 +525,67 @@ export default function Canvas() {
     setCurrentDesignId(null);
     if (p5Ref.current) redrawStrokes(p5Ref.current);
   }, [redrawStrokes]);
+
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    let timeout;
+    const handleScroll = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        const slideIndex = Math.round(scroll.scrollLeft / scroll.clientWidth);
+        const canvasDiv = containerRef.current;
+
+        const moveToWorkspace = () => {
+          if (!canvasDiv || !workspaceAreaRef.current) return;
+          if (canvasDiv.parentNode !== workspaceAreaRef.current) {
+            canvasDiv.style.position = '';
+            canvasDiv.style.top = '';
+            canvasDiv.style.left = '';
+            canvasDiv.style.width = '';
+            canvasDiv.style.height = '';
+            canvasDiv.style.zIndex = '';
+            workspaceAreaRef.current.appendChild(canvasDiv);
+          }
+        };
+
+        if (slideIndex === 0) {
+          moveToWorkspace();
+          clearCanvas();
+          return;
+        }
+
+        const design = savedDesigns[slideIndex - 1];
+        const galleryArea = galleryAreaRefs.current[slideIndex - 1];
+        if (design && galleryArea) {
+          if (canvasDiv && canvasDiv.parentNode !== galleryArea) {
+            canvasDiv.style.position = 'absolute';
+            canvasDiv.style.top = '0';
+            canvasDiv.style.left = '0';
+            canvasDiv.style.width = '100%';
+            canvasDiv.style.height = '100%';
+            canvasDiv.style.zIndex = '1';
+            galleryArea.appendChild(canvasDiv);
+          }
+          loadDesign(design);
+        }
+      }, 150);
+    };
+    scroll.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      scroll.removeEventListener("scroll", handleScroll);
+      clearTimeout(timeout);
+    };
+  }, [savedDesigns, loadDesign, clearCanvas]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleUndo = () => {
+    if (strokesRef.current.length === 0) return;
+    strokesRef.current.pop();
+    setStrokeCount(strokesRef.current.length);
+    if (p5Ref.current) redrawStrokes(p5Ref.current);
+  };
 
   const handleSave = async () => {
     if (strokesRef.current.length === 0) return;
@@ -637,12 +637,6 @@ export default function Canvas() {
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
       await loadDesigns();
-      // Return canvas to workspace after saving
-      const rawCanvas = canvasElRef.current;
-      if (rawCanvas && containerRef.current && !containerRef.current.contains(rawCanvas)) {
-        containerRef.current.appendChild(rawCanvas);
-      }
-      scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
       clearCanvas();
     } catch (err) {
       console.error(err);
@@ -652,7 +646,7 @@ export default function Canvas() {
   };
 
   const handleExportJpg = () => {
-    const el = canvasElRef.current;
+    const el = containerRef.current?.querySelector("canvas");
     if (!el) return;
     const a = document.createElement("a");
     a.href = el.toDataURL("image/jpeg", 0.95);
@@ -705,10 +699,15 @@ export default function Canvas() {
         console.error("Delete failed", res.status);
         return;
       }
-      // Return canvas to workspace before clearing
-      const rawCanvas = canvasElRef.current;
-      if (rawCanvas && containerRef.current && !containerRef.current.contains(rawCanvas)) {
-        containerRef.current.appendChild(rawCanvas);
+      const canvasDiv = containerRef.current;
+      if (canvasDiv && workspaceAreaRef.current && canvasDiv.parentNode !== workspaceAreaRef.current) {
+        canvasDiv.style.position = '';
+        canvasDiv.style.top = '';
+        canvasDiv.style.left = '';
+        canvasDiv.style.width = '';
+        canvasDiv.style.height = '';
+        canvasDiv.style.zIndex = '';
+        workspaceAreaRef.current.appendChild(canvasDiv);
       }
       clearCanvas();
       await loadDesigns();
@@ -746,31 +745,22 @@ export default function Canvas() {
         </IconButton>
       </WorkspaceHeader>
 
-      {/* ── Workspace (canvas lives here by default) ── */}
+      {/* ── Workspace — always blank, canvas div lives here until gallery slide snaps ── */}
       <WorkspaceSection>
-        <CanvasArea>
-          <div ref={containerRef} />
-        </CanvasArea>
+        <CanvasArea ref={workspaceAreaRef} />
       </WorkspaceSection>
 
-      {/* ── Gallery slides ── */}
-      {savedDesigns.map((design) => (
+      {/* ── Gallery slides — canvas teleports here on snap so user can draw directly ── */}
+      {savedDesigns.map((design, i) => (
         <DesignSlide key={design._id}>
           <DesignContent>
-            {/* Wrapper positions SVG behind canvas mount */}
-            <div style={{ position: "relative", width: canvasSize.width, height: canvasSize.height }}>
-              {/* SVG preview: visible while canvas is in another slide */}
+            <div
+              ref={(el) => { galleryAreaRefs.current[i] = el; }}
+              style={{ position: 'relative', width: canvasSize.width, height: canvasSize.height }}
+            >
               <div
-                style={{ position: "absolute", inset: 0 }}
+                style={{ position: 'absolute', inset: 0 }}
                 dangerouslySetInnerHTML={{ __html: design.svg }}
-              />
-              {/* Canvas mount: canvas is teleported here on scroll snap */}
-              <div
-                ref={(el) => {
-                  if (el) slideMountRefs.current.set(design._id, el);
-                  else slideMountRefs.current.delete(design._id);
-                }}
-                style={{ position: "absolute", inset: 0 }}
               />
             </div>
           </DesignContent>
