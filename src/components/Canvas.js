@@ -354,6 +354,10 @@ export default function Canvas() {
     const sketchDefinition = (sketch) => {
       let currentStroke = [];
       let isDrawing = false;
+      let pendingPoint = null;
+      let gestureType = null; // null | "draw" | "scroll"
+      let gestureStartX = 0;
+      let gestureStartY = 0;
 
       sketch.setup = () => {
         const { width, height } = getSize();
@@ -383,18 +387,34 @@ export default function Canvas() {
           sketch.mouseY > sketch.height
         )
           return;
-        isDrawing = true;
         const scale = Math.max(sketch.width, sketch.height) / 2;
-        currentStroke = [
-          {
-            x: (sketch.mouseX - sketch.width / 2) / scale,
-            y: (sketch.mouseY - sketch.height / 2) / scale,
-          },
-        ];
+        pendingPoint = {
+          x: (sketch.mouseX - sketch.width / 2) / scale,
+          y: (sketch.mouseY - sketch.height / 2) / scale,
+        };
+        gestureType = null;
+        gestureStartX = sketch.mouseX;
+        gestureStartY = sketch.mouseY;
       };
 
       sketch.mouseDragged = () => {
-        if (!isDrawing) return;
+        if (!pendingPoint) return;
+
+        // Determine gesture after enough movement — strongly horizontal = scroll
+        if (gestureType === null) {
+          const dx = Math.abs(sketch.mouseX - gestureStartX);
+          const dy = Math.abs(sketch.mouseY - gestureStartY);
+          if (dx < 8 && dy < 8) return;
+          gestureType = dx > dy * 1.2 ? "scroll" : "draw";
+        }
+
+        if (gestureType !== "draw") return;
+
+        if (!isDrawing) {
+          isDrawing = true;
+          currentStroke = [pendingPoint];
+        }
+
         if (
           sketch.mouseX < 0 ||
           sketch.mouseX > sketch.width ||
@@ -452,6 +472,8 @@ export default function Canvas() {
       };
 
       sketch.mouseReleased = () => {
+        pendingPoint = null;
+        gestureType = null;
         if (!isDrawing || currentStroke.length < 2) {
           isDrawing = false;
           currentStroke = [];
@@ -467,7 +489,8 @@ export default function Canvas() {
         currentStroke = [];
       };
 
-      sketch.touchMoved = () => false;
+      // Allow horizontal swipe for gallery navigation; block scroll only during drawing
+      sketch.touchMoved = () => gestureType === "draw" ? false : true;
     };
 
     const instance = new p5(sketchDefinition, containerRef.current);
