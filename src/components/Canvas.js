@@ -100,12 +100,14 @@ const IconButton = styled.button`
     transition: opacity 0.2s;
   }
 
-  &:hover img:first-child {
-    opacity: 0;
-  }
+  @media (hover: hover) {
+    &:hover img:first-child {
+      opacity: 0;
+    }
 
-  &:hover img + img {
-    opacity: 1;
+    &:hover img + img {
+      opacity: 1;
+    }
   }
 `;
 
@@ -168,8 +170,10 @@ const ColorToolLabel = styled.label`
     transition: opacity 0.15s;
   }
 
-  &:hover::after {
-    opacity: 1;
+  @media (hover: hover) {
+    &:hover::after {
+      opacity: 1;
+    }
   }
 
   &[data-label="background"]::after {
@@ -208,8 +212,10 @@ const BlurButton = styled.button`
     transition: color 0.2s;
   }
 
-  &:hover span {
-    color: #e879f9;
+  @media (hover: hover) {
+    &:hover span {
+      color: #e879f9;
+    }
   }
 `;
 
@@ -264,12 +270,14 @@ const ShapeButton = styled.button`
     transition: color 0.2s;
   }
 
-  &:hover svg path {
-    fill: #e879f9;
-  }
+  @media (hover: hover) {
+    &:hover svg path {
+      fill: #e879f9;
+    }
 
-  &:hover span {
-    color: #ffffff;
+    &:hover span {
+      color: #ffffff;
+    }
   }
 `;
 
