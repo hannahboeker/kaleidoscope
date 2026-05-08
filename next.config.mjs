@@ -4,6 +4,7 @@ const nextConfig = {
   compiler: {
     styledComponents: true,
   },
+  serverExternalPackages: ["sharp"],
 };
 
 export default nextConfig;

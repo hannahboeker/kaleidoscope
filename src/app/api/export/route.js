@@ -3,9 +3,11 @@ import sharp from "sharp";
 import { readFile } from "fs/promises";
 import path from "path";
 
-// A6 landscape
-const A6_W_PX = 1748;
-const A6_H_PX = 1240;
+export const maxDuration = 30;
+
+// A6 landscape at 150 DPI
+const A6_W_PX = 874;
+const A6_H_PX = 620;
 const A6_W_PT = 419.53;
 const A6_H_PT = 297.64;
 
