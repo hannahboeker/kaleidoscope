@@ -148,6 +148,7 @@ export function getUserId() {
 export function drawStrokeSymmetric(sketch, stroke) {
   const { points, color, type } = stroke;
   const isAirbrush = type === "airbrush";
+  const strokeSize = stroke.size ?? STROKE_WEIGHT;
 
   if (points.length < 2) return;
   const angleStep = 360 / SYMMETRY;
@@ -180,11 +181,11 @@ export function drawStrokeSymmetric(sketch, stroke) {
     const r = sketch.red(col);
     const g = sketch.green(col);
     const b = sketch.blue(col);
-    // 3 Durchgänge: breit+transparent → schmal+deckend = Glow-Effekt
+    // 3 Durchgänge: breit+transparent → schmal+deckend = Glow-Effekt, skaliert mit strokeSize
     const passes = [
-      { weight: 18, alpha: 30 },
-      { weight: 10, alpha: 60 },
-      { weight: 4, alpha: 180 },
+      { weight: strokeSize * 6, alpha: 30 },
+      { weight: strokeSize * 3.33, alpha: 60 },
+      { weight: strokeSize * 1.33, alpha: 180 },
     ];
     for (const { weight, alpha } of passes) {
       sketch.strokeWeight(weight);
@@ -195,7 +196,7 @@ export function drawStrokeSymmetric(sketch, stroke) {
     }
   } else {
     sketch.stroke(color);
-    sketch.strokeWeight(STROKE_WEIGHT);
+    sketch.strokeWeight(strokeSize);
     for (let i = 1; i < points.length; i++) {
       drawSegment(points[i - 1], points[i]);
     }
