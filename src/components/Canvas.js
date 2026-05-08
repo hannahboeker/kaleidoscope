@@ -291,7 +291,29 @@ const ButtonLabel = styled.span`
   pointer-events: none;
 `;
 
-const GalleryHint = styled.div`
+const NavArrow = styled.button`
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 20px 18px;
+  color: #e879f9;
+  font-family: "Neumarkt", serif;
+  font-size: 36px;
+  opacity: ${({ $visible }) => ($visible ? 1 : 0)};
+  pointer-events: ${({ $visible }) => ($visible ? "auto" : "none")};
+  touch-action: manipulation;
+  transition: opacity 0.3s;
+
+  @media (hover: hover) {
+    font-size: 32px;
+  }
+`;
+
+const GalleryHint = styled.button`
   position: fixed;
   right: 3%;
   top: 50%;
@@ -302,7 +324,11 @@ const GalleryHint = styled.div`
   font-size: 23px;
   letter-spacing: 0.09em;
   white-space: nowrap;
-  pointer-events: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
   animation: galleryHintFade 4s ease forwards;
 
   @keyframes galleryHintFade {
@@ -342,6 +368,8 @@ export default function Canvas() {
   const [savedDesigns, setSavedDesigns] = useState([]);
   const [canvasSize, setCanvasSize] = useState(() => getSize());
   const [currentDesignId, setCurrentDesignId] = useState(null);
+  const [showArrows, setShowArrows] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   // ── Hilfsfunktionen ───────────────────────────────────────────────────────
 
@@ -399,7 +427,13 @@ export default function Canvas() {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
         drawingLocked = false;
+        setShowArrows(false);
       }
+    };
+
+    const onTouchEnd = () => {
+      drawingLocked = false;
+      setShowArrows(true);
     };
 
     const onTouchMove = (e) => {
@@ -410,7 +444,7 @@ export default function Canvas() {
       const veränderungX = Math.abs(e.touches[0].clientX - touchStartX);
       const veränderungY = Math.abs(e.touches[0].clientY - touchStartY);
       if (veränderungX < 8 && veränderungY < 8) return; // noch zu wenig Bewegung
-      if (veränderungX > veränderungY * 2.5) return; // klar horizontal: scrollen
+      if (veränderungX > veränderungY) return; // mehr horizontal als vertikal: scrollen
       drawingLocked = true;
       e.preventDefault();
     };
@@ -430,12 +464,9 @@ export default function Canvas() {
         setCanvasSize({ width, height });
         if (strokesRef.current.length > 0) redrawStrokes(sketch);
         canvasElRef = canvasElement.elt;
-        canvasElRef.addEventListener("touchstart", onTouchStart, {
-          passive: true,
-        });
-        canvasElRef.addEventListener("touchmove", onTouchMove, {
-          passive: false,
-        });
+        canvasElRef.addEventListener("touchstart", onTouchStart, { passive: true });
+        canvasElRef.addEventListener("touchmove", onTouchMove, { passive: false });
+        canvasElRef.addEventListener("touchend", onTouchEnd, { passive: true });
       };
 
       sketch.windowResized = () => {
@@ -574,6 +605,7 @@ export default function Canvas() {
     return () => {
       canvasElRef?.removeEventListener("touchstart", onTouchStart);
       canvasElRef?.removeEventListener("touchmove", onTouchMove);
+      canvasElRef?.removeEventListener("touchend", onTouchEnd);
       instance.remove();
       canvasDiv.remove();
       p5Ref.current = null;
@@ -644,6 +676,8 @@ export default function Canvas() {
       timeout = setTimeout(() => {
         const slideIndex = Math.round(scroll.scrollLeft / scroll.clientWidth);
         const canvasDiv = containerRef.current;
+        setCurrentSlide(slideIndex);
+        setShowArrows(true);
 
         if (slideIndex === 0) {
           moveCanvasToWorkspace();
@@ -676,6 +710,21 @@ export default function Canvas() {
     };
     // Dependency Array, wenn sich einer hiervon ändert alten Scroll-Handler weg und neuen regestreiren
   }, [savedDesigns, loadDesign, clearCanvas, moveCanvasToWorkspace]);
+
+  // ── Tastatur-Navigation (Pfeiltasten links/rechts)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const scroll = scrollRef.current;
+      if (!scroll) return;
+      if (e.key === "ArrowRight") {
+        scroll.scrollBy({ left: scroll.clientWidth, behavior: "smooth" });
+      } else if (e.key === "ArrowLeft") {
+        scroll.scrollBy({ left: -scroll.clientWidth, behavior: "smooth" });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // ── Event-Handler ─────────────────────────────────────────────────────────
 
@@ -810,6 +859,7 @@ export default function Canvas() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <ScrollContainer ref={scrollRef}>
       {/* ── Header (fixed, über alle Slides) ── */}
       <WorkspaceHeader>
@@ -1046,7 +1096,27 @@ export default function Canvas() {
         </ToolbarInner>
       </Toolbar>
 
-      {saveState === "saved" && <GalleryHint>gallery →</GalleryHint>}
+      {saveState === "saved" && (
+        <GalleryHint
+          onClick={() => scrollRef.current?.scrollBy({ left: scrollRef.current.clientWidth, behavior: "smooth" })}
+        >
+          gallery →
+        </GalleryHint>
+      )}
+
     </ScrollContainer>
+    <NavArrow
+      $visible={showArrows && currentSlide > 0}
+      style={{ left: 0 }}
+      onClick={() => scrollRef.current?.scrollBy({ left: -scrollRef.current.clientWidth, behavior: "smooth" })}
+      aria-label="vorherige Seite"
+    >←</NavArrow>
+    <NavArrow
+      $visible={showArrows && currentSlide > 0}
+      style={{ right: 0 }}
+      onClick={() => scrollRef.current?.scrollBy({ left: scrollRef.current.clientWidth, behavior: "smooth" })}
+      aria-label="nächste Seite"
+    >→</NavArrow>
+    </>
   );
 }
