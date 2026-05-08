@@ -3,9 +3,11 @@ import sharp from "sharp";
 import { readFile } from "fs/promises";
 import path from "path";
 
-// A6 landscape
-const A6_W_PX = 1748;
-const A6_H_PX = 1240;
+export const maxDuration = 30;
+
+// A6 landscape at 150 DPI
+const A6_W_PX = 874;
+const A6_H_PX = 620;
 const A6_W_PT = 419.53;
 const A6_H_PT = 297.64;
 
@@ -43,11 +45,6 @@ export async function POST(request) {
     const backSecondary = bgColor === "#ffffff" ? strokeColor : bgColor;
     backSvg = backSvg.replaceAll(SVG_COLOR_PRIMARY, backPrimary);
     backSvg = backSvg.replaceAll(SVG_COLOR_SECONDARY, backSecondary);
-    // viewBox auf den tatsächlichen Inhalt zuschneiden (SVG-Canvas hat sonst große Ränder)
-    backSvg = backSvg.replace(
-      /viewBox="[^"]*"/,
-      'viewBox="103.37 64.98 1748.47 1240.47"',
-    );
 
     //Buffer sind binäre Daten
     const backPng = await sharp(Buffer.from(backSvg))

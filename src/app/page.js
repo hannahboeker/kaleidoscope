@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 // p5 => setzt window/document vorraus (gibts beides auf Server nicht)
 const Canvas = dynamic(() => import("../components/Canvas"), {
   ssr: false,
-  loading: () => <p> Loading...</p>,
+  loading: () => null,
 });
 
 export default function Home() {

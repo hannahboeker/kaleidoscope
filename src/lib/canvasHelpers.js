@@ -6,15 +6,18 @@ export const SYMMETRY = 3;
 export const BG_COLOR = "#ffffff";
 export const STROKE_COLOR = "#0800ff";
 export const STROKE_WEIGHT = 3;
-export const HEADER_HEIGHT = 70;
+export const HEADER_HEIGHT = 52;
 export const FOOTER_HEIGHT = 190;
+export const FOOTER_HEIGHT_MOBILE = 110;
 
 // Größe Postkarte
 export function getSize() {
   const portrait = window.innerWidth <= BREAKPOINT;
   const ratio = portrait ? RATIO_LANDSCAPE : RATIO_PORTRAIT;
-  const availableW = window.innerWidth - 4;
-  const availableH = window.innerHeight - HEADER_HEIGHT - FOOTER_HEIGHT;
+  const sidePad = Math.round(window.innerWidth * 0.03);
+  const availableW = window.innerWidth - sidePad * 2;
+  const footerH = window.innerWidth <= 430 ? FOOTER_HEIGHT_MOBILE : FOOTER_HEIGHT;
+  const availableH = window.innerHeight - HEADER_HEIGHT - footerH;
 
   let width = availableW;
   let height;

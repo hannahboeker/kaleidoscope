@@ -10,6 +10,7 @@ import {
   STROKE_WEIGHT,
   HEADER_HEIGHT,
   FOOTER_HEIGHT,
+  FOOTER_HEIGHT_MOBILE,
   getSize,
   buildSVG,
   drawStrokeSymmetric,
@@ -22,27 +23,66 @@ const PAGE_BG = "#999999";
 
 const ScrollContainer = styled.div`
   height: 100dvh;
-  overflow-y: scroll;
-  scroll-snap-type: y mandatory;
-  overscroll-behavior-y: contain;
+  width: 100vw;
+  display: flex;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
   background: ${PAGE_BG};
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  scrollbar-width: none;
 `;
 
 const WorkspaceSection = styled.section`
   height: 100dvh;
+  width: 100vw;
+  flex-shrink: 0;
   scroll-snap-align: start;
   background: ${PAGE_BG};
   display: flex;
   flex-direction: column;
+  padding-top: ${HEADER_HEIGHT}px;
+`;
+
+const DesignSlide = styled.section`
+  height: 100dvh;
+  width: 100vw;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  background: ${PAGE_BG};
+  display: flex;
+  flex-direction: column;
+  padding-top: ${HEADER_HEIGHT}px;
+`;
+
+const DesignContent = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: ${FOOTER_HEIGHT}px;
+
+  @media (max-width: 430px) {
+    padding-bottom: ${FOOTER_HEIGHT_MOBILE}px;
+  }
 `;
 
 const WorkspaceHeader = styled.header`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   height: ${HEADER_HEIGHT}px;
-  flex-shrink: 0;
+  z-index: 200;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px 0;
+  align-items: flex-start;
+  padding: 4px 3% 0;
 `;
 
 const IconButton = styled.button`
@@ -52,7 +92,6 @@ const IconButton = styled.button`
   padding: 0;
   cursor: pointer;
   line-height: 0;
-  ${({ $disabled }) => $disabled && "pointer-events: none;"}
 
   img + img {
     position: absolute;
@@ -61,12 +100,14 @@ const IconButton = styled.button`
     transition: opacity 0.2s;
   }
 
-  &:hover img:first-child {
-    opacity: 0;
-  }
+  @media (hover: hover) {
+    &:hover img:first-child {
+      opacity: 0;
+    }
 
-  &:hover img + img {
-    opacity: 1;
+    &:hover img + img {
+      opacity: 1;
+    }
   }
 `;
 
@@ -74,9 +115,13 @@ const CanvasArea = styled.main`
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 5px 2px 0;
+  padding-bottom: ${FOOTER_HEIGHT}px;
+
+  @media (max-width: 430px) {
+    padding-bottom: ${FOOTER_HEIGHT_MOBILE}px;
+  }
 `;
 
 // TOOLBAR ──────────────────────────────────────────────────────────
@@ -90,11 +135,13 @@ const Toolbar = styled.div`
   background: transparent;
   z-index: 100;
   display: flex;
-  align-items: center;
-  padding: 0 4px 0 16px;
-  opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
-  pointer-events: ${({ $hidden }) => ($hidden ? "none" : "auto")};
-  transition: opacity 0.3s;
+  flex-direction: column;
+  justify-content: center;
+
+  @media (max-width: 430px) {
+    height: ${FOOTER_HEIGHT_MOBILE}px;
+    overflow: hidden;
+  }
 `;
 
 const ColorToolLabel = styled.label`
@@ -123,8 +170,10 @@ const ColorToolLabel = styled.label`
     transition: opacity 0.15s;
   }
 
-  &:hover::after {
-    opacity: 1;
+  @media (hover: hover) {
+    &:hover::after {
+      opacity: 1;
+    }
   }
 
   &[data-label="background"]::after {
@@ -163,13 +212,27 @@ const BlurButton = styled.button`
     transition: color 0.2s;
   }
 
-  &:hover span {
-    color: #e879f9;
+  @media (hover: hover) {
+    &:hover span {
+      color: #e879f9;
+    }
   }
 `;
 
 const ToolbarSpacer = styled.div`
   flex: 1;
+`;
+
+const ToolbarInner = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 4px 0 16px;
+
+  @media (max-width: 430px) {
+    transform: scale(0.7);
+    transform-origin: left center;
+  }
 `;
 
 const ExportArea = styled.div`
@@ -182,7 +245,6 @@ const ExportArea = styled.div`
   z-index: 1;
 `;
 
-// Export-Button mit SVG-Rahmenform als Hintergrund
 const ShapeButton = styled.button`
   position: relative;
   background: none;
@@ -208,12 +270,14 @@ const ShapeButton = styled.button`
     transition: color 0.2s;
   }
 
-  &:hover svg path {
-    fill: #e879f9;
-  }
+  @media (hover: hover) {
+    &:hover svg path {
+      fill: #e879f9;
+    }
 
-  &:hover span {
-    color: #ffffff;
+    &:hover span {
+      color: #ffffff;
+    }
   }
 `;
 
@@ -227,85 +291,68 @@ const ButtonLabel = styled.span`
   pointer-events: none;
 `;
 
-// SAVED DESIGN ────────────────────────────────────────────────────────────
-
-const GalleryContainer = styled.div`
-  scroll-snap-align: start;
-`;
-
-const SavedSection = styled.section`
-  background: ${PAGE_BG};
-  padding: 6px 0;
-  display: flex;
-  justify-content: center;
-`;
-
-const SavedImageWrapper = styled.div`
-  position: relative;
+const NavArrow = styled.button`
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 500;
+  background: none;
+  border: none;
   cursor: pointer;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
+  padding: 20px 18px;
+  color: #e879f9;
+  font-family: "Neumarkt", serif;
+  font-size: 36px;
+  opacity: ${({ $visible }) => ($visible ? 1 : 0)};
+  pointer-events: ${({ $visible }) => ($visible ? "auto" : "none")};
+  touch-action: manipulation;
+  transition: opacity 0.3s;
 
-  & > div {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  & > div > svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  button {
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  &:hover button {
-    opacity: 1;
+  @media (hover: hover) {
+    font-size: 32px;
   }
 `;
 
-const ActionBtn = styled.button`
-  position: absolute;
-  top: 10px;
+const GalleryHint = styled.button`
+  position: fixed;
+  right: 3%;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 200;
+  color: #e879f9;
+  font-family: "Neumarkt", serif;
+  font-size: 23px;
+  letter-spacing: 0.09em;
+  white-space: nowrap;
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
-  line-height: 0;
+  touch-action: manipulation;
+  animation: galleryHintFade 4s ease forwards;
 
-  img + img {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  &:hover img:first-child {
-    opacity: 0;
-  }
-
-  &:hover img + img {
-    opacity: 1;
+  @keyframes galleryHintFade {
+    0% {
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    75% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
   }
 `;
 
-const DeleteBtn = styled(ActionBtn)`
-  left: 10px;
-`;
-
-const EditBtn = styled(ActionBtn)`
-  right: 10px;
-`;
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Hauptkomponente ──────────────────────────────────────────────────────────
 
 export default function Canvas() {
   const containerRef = useRef(null);
+  const workspaceAreaRef = useRef(null); //für leeren Canvas wenn rechts swiped
+  const galleryAreaRefs = useRef([]); // ein Ref pro gespeichertem Design
   const scrollRef = useRef(null);
   const p5Ref = useRef(null);
   const strokesRef = useRef([]);
@@ -319,12 +366,12 @@ export default function Canvas() {
   const [bgColor, setBgColor] = useState(BG_COLOR);
   const [brushType, setBrushType] = useState("normal");
   const [savedDesigns, setSavedDesigns] = useState([]);
-  const [toolbarHidden, setToolbarHidden] = useState(false);
   const [canvasSize, setCanvasSize] = useState(() => getSize());
   const [currentDesignId, setCurrentDesignId] = useState(null);
-  const workspaceRef = useRef(null);
+  const [showArrows, setShowArrows] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Hilfsfunktionen ───────────────────────────────────────────────────────
 
   const redrawStrokes = useCallback((sketch) => {
     sketch.background(bgColorRef.current);
@@ -360,29 +407,47 @@ export default function Canvas() {
     }
   }, []);
 
-  // ── Load gallery on mount ──────────────────────────────────────────────────
-
   useEffect(() => {
     loadDesigns();
   }, [loadDesigns]);
 
-  // ── Toolbar ausblenden wenn Galerie sichtbar ───────────────────────────────
-
-  useEffect(() => {
-    const el = workspaceRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setToolbarHidden(!entry.isIntersecting),
-      { threshold: 0.1 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  // ── p5 setup ───────────────────────────────────────────────────────────────
+  // ── p5 initialisieren ─────────────────────────────────────────────────────
 
   useEffect(() => {
     if (p5Ref.current) return;
+
+    // native Touch-Handler, außerhalb von p5, damit iOS Safari rechtzeitig über Scrollen/Zeichnen entscheidet
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let drawingLocked = false; // true sobald Zeichnen erkannt
+    let canvasElRef = null;
+
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        drawingLocked = false;
+        setShowArrows(false);
+      }
+    };
+
+    const onTouchEnd = () => {
+      drawingLocked = false;
+      setShowArrows(true);
+    };
+
+    const onTouchMove = (e) => {
+      if (drawingLocked) {
+        e.preventDefault();
+        return;
+      }
+      const veränderungX = Math.abs(e.touches[0].clientX - touchStartX);
+      const veränderungY = Math.abs(e.touches[0].clientY - touchStartY);
+      if (veränderungX < 8 && veränderungY < 8) return; // noch zu wenig Bewegung
+      if (veränderungX > veränderungY) return; // mehr horizontal als vertikal: scrollen
+      drawingLocked = true;
+      e.preventDefault();
+    };
 
     const sketchDefinition = (sketch) => {
       let currentStroke = [];
@@ -398,6 +463,10 @@ export default function Canvas() {
         sketch.noLoop();
         setCanvasSize({ width, height });
         if (strokesRef.current.length > 0) redrawStrokes(sketch);
+        canvasElRef = canvasElement.elt;
+        canvasElRef.addEventListener("touchstart", onTouchStart, { passive: true });
+        canvasElRef.addEventListener("touchmove", onTouchMove, { passive: false });
+        canvasElRef.addEventListener("touchend", onTouchEnd, { passive: true });
       };
 
       sketch.windowResized = () => {
@@ -519,26 +588,73 @@ export default function Canvas() {
         currentStroke = [];
       };
 
-      sketch.touchMoved = () => false;
+      // touchMoved mit leerer Funktion überschriebn, damit scrollen möglich
+      sketch.touchMoved = () => {};
     };
 
-    const instance = new p5(sketchDefinition, containerRef.current);
+    const canvasDiv = document.createElement("div");
+    canvasDiv.style.display = "flex";
+    canvasDiv.style.alignItems = "center";
+    canvasDiv.style.justifyContent = "center";
+    containerRef.current = canvasDiv;
+    workspaceAreaRef.current.appendChild(canvasDiv);
+
+    const instance = new p5(sketchDefinition, canvasDiv);
     p5Ref.current = instance;
 
     return () => {
+      canvasElRef?.removeEventListener("touchstart", onTouchStart);
+      canvasElRef?.removeEventListener("touchmove", onTouchMove);
+      canvasElRef?.removeEventListener("touchend", onTouchEnd);
       instance.remove();
+      canvasDiv.remove();
       p5Ref.current = null;
     };
   }, [redrawStrokes]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Design laden wenn Gallery-Slide einrastet ────────────────────────────
 
-  const handleUndo = () => {
-    if (strokesRef.current.length === 0) return;
-    strokesRef.current.pop();
-    setStrokeCount(strokesRef.current.length);
-    if (p5Ref.current) redrawStrokes(p5Ref.current);
-  };
+  const loadDesign = useCallback(
+    (design) => {
+      const rawStrokes = design.strokes ?? [];
+      strokesRef.current = rawStrokes.map((s) =>
+        Array.isArray(s)
+          ? {
+              points: s,
+              color: STROKE_COLOR,
+              type: "normal",
+              size: STROKE_WEIGHT,
+            }
+          : {
+              points: s.points ?? [],
+              color: s.color ?? STROKE_COLOR,
+              type: s.type ?? "normal",
+              size: s.size ?? STROKE_WEIGHT,
+            },
+      );
+      const loadedBgColor = design.bgColor ?? BG_COLOR;
+      bgColorRef.current = loadedBgColor;
+      setBgColor(loadedBgColor);
+      setStrokeCount(strokesRef.current.length);
+      setCurrentDesignId(design._id);
+      if (p5Ref.current) redrawStrokes(p5Ref.current);
+    },
+    [redrawStrokes],
+  );
+
+  const moveCanvasToWorkspace = useCallback(() => {
+    const canvasDiv = containerRef.current;
+    if (!canvasDiv || !workspaceAreaRef.current) return;
+    if (canvasDiv.parentNode !== workspaceAreaRef.current) {
+      canvasDiv.style.position = "";
+      canvasDiv.style.top = "";
+      canvasDiv.style.left = "";
+      canvasDiv.style.width = "";
+      canvasDiv.style.height = "";
+      canvasDiv.style.zIndex = "";
+      workspaceAreaRef.current.appendChild(canvasDiv);
+    }
+  }, []);
 
   const clearCanvas = useCallback(() => {
     strokesRef.current = [];
@@ -550,6 +666,74 @@ export default function Canvas() {
     setCurrentDesignId(null);
     if (p5Ref.current) redrawStrokes(p5Ref.current);
   }, [redrawStrokes]);
+
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    let timeout;
+    const handleScroll = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        const slideIndex = Math.round(scroll.scrollLeft / scroll.clientWidth);
+        const canvasDiv = containerRef.current;
+        setCurrentSlide(slideIndex);
+        setShowArrows(true);
+
+        if (slideIndex === 0) {
+          moveCanvasToWorkspace();
+          clearCanvas();
+          return;
+        }
+
+        const design = savedDesigns[slideIndex - 1]; // richtiges Element holen
+        const galleryArea = galleryAreaRefs.current[slideIndex - 1];
+        if (design && galleryArea) {
+          if (canvasDiv && canvasDiv.parentNode !== galleryArea) {
+            canvasDiv.style.position = "absolute";
+            canvasDiv.style.top = "0";
+            canvasDiv.style.left = "0";
+            canvasDiv.style.width = "100%";
+            canvasDiv.style.height = "100%";
+            canvasDiv.style.zIndex = "1";
+            //Verschieben galleryArea ist Container
+            galleryArea.appendChild(canvasDiv);
+          }
+          //Daten lasen
+          loadDesign(design);
+        }
+      }, 150);
+    };
+    scroll.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      scroll.removeEventListener("scroll", handleScroll);
+      clearTimeout(timeout);
+    };
+    // Dependency Array, wenn sich einer hiervon ändert alten Scroll-Handler weg und neuen regestreiren
+  }, [savedDesigns, loadDesign, clearCanvas, moveCanvasToWorkspace]);
+
+  // ── Tastatur-Navigation (Pfeiltasten links/rechts)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const scroll = scrollRef.current;
+      if (!scroll) return;
+      if (e.key === "ArrowRight") {
+        scroll.scrollBy({ left: scroll.clientWidth, behavior: "smooth" });
+      } else if (e.key === "ArrowLeft") {
+        scroll.scrollBy({ left: -scroll.clientWidth, behavior: "smooth" });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // ── Event-Handler ─────────────────────────────────────────────────────────
+
+  const handleUndo = () => {
+    if (strokesRef.current.length === 0) return;
+    strokesRef.current.pop();
+    setStrokeCount(strokesRef.current.length);
+    if (p5Ref.current) redrawStrokes(p5Ref.current);
+  };
 
   const handleSave = async () => {
     if (strokesRef.current.length === 0) return;
@@ -577,17 +761,19 @@ export default function Canvas() {
       };
 
       let response;
-
       if (currentDesignId) {
-        response = await fetch(`/api/design/${currentDesignId}?userId=${userId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            svg,
-            strokes: strokesRef.current,
-            bgColor: bgColorRef.current,
-          }),
-        });
+        response = await fetch(
+          `/api/design/${currentDesignId}?userId=${userId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              svg,
+              strokes: strokesRef.current,
+              bgColor: bgColorRef.current,
+            }),
+          },
+        );
         if (response.status === 404) {
           response = await fetch("/api/design/save", postOpts);
         }
@@ -597,7 +783,7 @@ export default function Canvas() {
 
       if (!response.ok) throw new Error("save failed");
       setSaveState("saved");
-      setTimeout(() => setSaveState("idle"), 2000);
+      setTimeout(() => setSaveState("idle"), 4000);
       await loadDesigns();
       clearCanvas();
     } catch (err) {
@@ -650,29 +836,7 @@ export default function Canvas() {
     }
   };
 
-  const handleEditDesign = (design) => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    const rawStrokes = design.strokes ?? [];
-    strokesRef.current = rawStrokes.map((s) =>
-      Array.isArray(s)
-        ? { points: s, color: STROKE_COLOR, type: "normal", size: STROKE_WEIGHT }
-        : {
-            points: s.points ?? [],
-            color: s.color ?? STROKE_COLOR,
-            type: s.type ?? "normal",
-            size: s.size ?? STROKE_WEIGHT,
-          },
-    );
-    const loadedBgColor = design.bgColor ?? BG_COLOR;
-    bgColorRef.current = loadedBgColor;
-    setBgColor(loadedBgColor);
-    setStrokeCount(strokesRef.current.length);
-    setCurrentDesignId(design._id);
-    if (p5Ref.current) redrawStrokes(p5Ref.current);
-  };
-
-  const handleDeleteDesign = async (e, id) => {
-    e.stopPropagation();
+  const handleDeleteDesign = async (id) => {
     if (!window.confirm("Delete this design?")) return;
     try {
       const userId = getUserId();
@@ -680,280 +844,279 @@ export default function Canvas() {
         method: "DELETE",
       });
       if (!res.ok && res.status !== 404) {
-        const body = await res.json().catch(() => ({}));
-        console.error("Delete failed", res.status, body);
+        console.error("Delete failed", res.status);
         return;
       }
-      if (currentDesignId === id) clearCanvas();
+      moveCanvasToWorkspace();
+      clearCanvas();
       await loadDesigns();
+      scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
     } catch (err) {
       console.error(err);
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <ScrollContainer ref={scrollRef}>
-      {/* ── Workspace ── */}
-      <WorkspaceSection ref={workspaceRef}>
-        <WorkspaceHeader>
-          <IconButton onClick={handleUndo} $disabled={strokeCount === 0}>
-            <img
-              src="/Icons/Undo.svg"
-              alt="Undo"
-              width={44}
-              height={44}
-              style={{ display: "block" }}
-            />
-            <img
-              src="/Icons/Undo-yellow.svg"
-              alt=""
-              width={44}
-              height={44}
-              style={{ display: "block" }}
-            />
-          </IconButton>
+      {/* ── Header (fixed, über alle Slides) ── */}
+      <WorkspaceHeader>
+        <IconButton onClick={handleUndo}>
+          <img
+            src="/Icons/Undo.svg"
+            alt="Undo"
+            width={36}
+            height={36}
+            style={{ display: "block" }}
+          />
+          <img
+            src="/Icons/Undo-yellow.svg"
+            alt=""
+            width={36}
+            height={36}
+            style={{ display: "block" }}
+          />
+        </IconButton>
+        {currentDesignId && (
           <IconButton
-            onClick={handleSave}
-            $disabled={saveState === "saving" || strokeCount === 0}
+            onClick={() => handleDeleteDesign(currentDesignId)}
+            aria-label="Löschen"
           >
             <img
-              src={
-                saveState === "saved"
-                  ? "/Icons/Save-yellow.svg"
-                  : "/Icons/Save.svg"
-              }
-              alt="Save"
-              width={44}
-              height={44}
+              src="/Icons/Delete.svg"
+              alt="Löschen"
+              width={36}
+              height={36}
               style={{ display: "block" }}
             />
             <img
-              src="/Icons/Save-yellow.svg"
+              src="/Icons/Delete-yellow.svg"
               alt=""
-              width={44}
-              height={44}
+              width={36}
+              height={36}
               style={{ display: "block" }}
             />
           </IconButton>
-        </WorkspaceHeader>
+        )}
+        <IconButton onClick={handleSave}>
+          <img
+            src={
+              saveState === "saved"
+                ? "/Icons/Save-yellow.svg"
+                : "/Icons/Save.svg"
+            }
+            alt="Save"
+            width={36}
+            height={36}
+            style={{ display: "block" }}
+          />
+          <img
+            src="/Icons/Save-yellow.svg"
+            alt=""
+            width={36}
+            height={36}
+            style={{ display: "block" }}
+          />
+        </IconButton>
+      </WorkspaceHeader>
 
-        <CanvasArea>
-          <div ref={containerRef} />
-        </CanvasArea>
+      {/* ── Workspace, immer leer, Canvas-Div wohnt hier bis Gallery-Slide einrastet ── */}
+      <WorkspaceSection>
+        <CanvasArea ref={workspaceAreaRef} />
       </WorkspaceSection>
 
-      {/* ── Saved Designs ── */}
-      {savedDesigns.length > 0 && (
-        <GalleryContainer>
-          {savedDesigns.map((design) => (
-            <SavedSection
-              key={design._id}
-              onClick={() => handleEditDesign(design)}
+      {/* ── Gallery-Slides, Canvas teleportiert hierher zum direkten Zeichnen ── */}
+      {savedDesigns.map((design, i) => (
+        <DesignSlide key={design._id}>
+          <DesignContent>
+            <div
+              ref={(el) => {
+                galleryAreaRefs.current[i] = el;
+              }}
+              style={{
+                position: "relative",
+                width: canvasSize.width,
+                height: canvasSize.height,
+              }}
             >
-              <SavedImageWrapper
-                style={{ width: canvasSize.width, height: canvasSize.height }}
-              >
-                <div dangerouslySetInnerHTML={{ __html: design.svg }} />
-                <DeleteBtn
-                  onClick={(e) => handleDeleteDesign(e, design._id)}
-                  aria-label="Löschen"
-                >
-                  <img
-                    src="/Icons/Delete.svg"
-                    alt="Löschen"
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                  <img
-                    src="/Icons/Delete-yellow.svg"
-                    alt=""
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                </DeleteBtn>
-                <EditBtn
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditDesign(design);
-                  }}
-                  aria-label="Bearbeiten"
-                >
-                  <img
-                    src="/Icons/Edit.svg"
-                    alt="Bearbeiten"
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                  <img
-                    src="/Icons/Edit-yellow.svg"
-                    alt=""
-                    width={44}
-                    height={44}
-                    style={{ display: "block" }}
-                  />
-                </EditBtn>
-              </SavedImageWrapper>
-            </SavedSection>
-          ))}
-        </GalleryContainer>
-      )}
+              <div
+                style={{ position: "absolute", inset: 0 }}
+                dangerouslySetInnerHTML={{ __html: design.svg }}
+              />
+            </div>
+          </DesignContent>
+        </DesignSlide>
+      ))}
 
       {/* ── Toolbar (fixed) ── */}
-      <Toolbar $hidden={toolbarHidden}>
-        {/* Strich-Farbe */}
-        <ColorToolLabel data-label="stroke">
-          {/* Farbfläche hinter dem Rahmen */}
-          <svg
-            viewBox="0 0 154.12 154.74"
-            style={{
-              position: "absolute",
-              width: 79,
-              height: 105,
-              top: 9,
-              left: 7,
-              zIndex: 0,
-              transform: "translate(-1px, 10px)",
-            }}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <ellipse
-              fill={strokeColor}
-              cx="77.59"
-              cy="77.37"
-              rx="77.59"
-              ry="70.46"
-            />
-          </svg>
-          {/* Blob-Rahmen darüber */}
-          <img
-            src="/Icons/BG-Color.svg"
-            alt="Strichfarbe"
-            width={92}
-            height={122}
-            style={{
-              display: "block",
-              position: "relative",
-              zIndex: 1,
-              transform: "translate(-1px, 10px)",
-            }}
-          />
-          <HiddenColorInput
-            value={strokeColor}
-            onChange={(e) => {
-              setStrokeColor(e.target.value);
-              strokeColorRef.current = e.target.value;
-            }}
-          />
-        </ColorToolLabel>
-
-        {/* Hintergrund-Farbe */}
-        <ColorToolLabel
-          data-label="background"
-          style={{ marginLeft: 29, transform: "translate(-3px, -12px)" }}
-        >
-          {/* Farbfläche hinter dem Rahmen */}
-          <svg
-            viewBox="0 0 154.12 154.74"
-            width={95}
-            height={126}
-            style={{ position: "absolute", inset: 0, zIndex: 0 }}
-            preserveAspectRatio="xMidYMid meet"
-          >
-            <rect
-              fill={bgColor}
-              x="15.7"
-              y="12.02"
-              width="105.91"
-              height="129.6"
-            />
-          </svg>
-          {/* Blob-Rahmen darüber */}
-          <img
-            src="/Icons/Stroke-Color.svg"
-            alt="Hintergrundfarbe"
-            width={95}
-            height={126}
-            style={{ display: "block", position: "relative", zIndex: 1 }}
-          />
-          <HiddenColorInput
-            value={bgColor}
-            onChange={(e) => {
-              setBgColor(e.target.value);
-              bgColorRef.current = e.target.value;
-              if (p5Ref.current) redrawStrokes(p5Ref.current);
-            }}
-          />
-        </ColorToolLabel>
-
-        {/* Blur Toggle */}
-        <BlurButton
-          $active={brushType === "airbrush"}
-          onClick={() => {
-            const next =
-              brushTypeRef.current === "normal" ? "airbrush" : "normal";
-            setBrushType(next);
-            brushTypeRef.current = next;
-          }}
-          style={{ marginLeft: 5 }}
-        >
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "#ffffff",
-              WebkitMaskImage: "url('/Icons/blur.svg')",
-              maskImage: "url('/Icons/blur.svg')",
-              WebkitMaskSize: "100% 100%",
-              maskSize: "100% 100%",
-              WebkitMaskRepeat: "no-repeat",
-              maskRepeat: "no-repeat",
-            }}
-          />
-          <img
-            src="/Icons/blur.svg"
-            alt="Blur"
-            width={100}
-            height={133}
-            style={{ display: "block", position: "relative", zIndex: 1 }}
-          />
-          <ButtonLabel>blur</ButtonLabel>
-        </BlurButton>
-
-        <ToolbarSpacer />
-
-        {/* Export-Buttons mit SVG-Rahmenformen */}
-        <ExportArea>
-          <ShapeButton onClick={handleExportJpg}>
+      <Toolbar>
+        <ToolbarInner>
+          <ColorToolLabel data-label="stroke">
             <svg
-              viewBox="0 0 51.62 34.92"
-              width="85"
-              height="58"
-              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 154.12 154.74"
+              style={{
+                position: "absolute",
+                width: 79,
+                height: 105,
+                top: 9,
+                left: 7,
+                zIndex: 0,
+                transform: "translate(-1px, 10px)",
+              }}
+              preserveAspectRatio="xMidYMid meet"
             >
-              <path d="M18.61,8.79l13.52-3.73s2.92-.95,6.63,2.05,6.63-1.5,6.63,6.18,6.63,13.52,1.59,14.32-13.26-.8-19.62,0-5.83,2.39-13.26,2.39H4.51s1.37-25.19,14.1-21.21Z" />
+              <ellipse
+                fill={strokeColor}
+                cx="77.59"
+                cy="77.37"
+                rx="77.59"
+                ry="70.46"
+              />
             </svg>
-            <ButtonLabel>jpg</ButtonLabel>
-          </ShapeButton>
+            <img
+              src="/Icons/BG-Color.svg"
+              alt="Strichfarbe"
+              width={92}
+              height={122}
+              style={{
+                display: "block",
+                position: "relative",
+                zIndex: 1,
+                transform: "translate(-1px, 10px)",
+              }}
+            />
+            <HiddenColorInput
+              value={strokeColor}
+              onChange={(e) => {
+                setStrokeColor(e.target.value);
+                strokeColorRef.current = e.target.value;
+              }}
+            />
+          </ColorToolLabel>
 
-          <ShapeButton onClick={handleExportPdf}>
+          <ColorToolLabel
+            data-label="background"
+            style={{ marginLeft: 29, transform: "translate(-3px, -12px)" }}
+          >
             <svg
-              viewBox="0 0 108.07 34.92"
-              width="175"
-              height="58"
-              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 154.12 154.74"
+              width={95}
+              height={126}
+              style={{ position: "absolute", inset: 0, zIndex: 0 }}
+              preserveAspectRatio="xMidYMid meet"
             >
-              <path d="M9.06,17.79s-3.52,9.24,8.85,10.27,40.57-3.78,40.57-3.78h13.75s4.13,5.5,10.32.69,19.47,2.23,17.41-1.55,2.9-19.65-4.32-16.21-15.79-1.14-25.47,0c-6.74.79-26.13,6.07-31.63,6.07s-10.32-3.09-16.16-3.09-16.75-6.84-14.1,1.03c1.97,5.85.77,6.58.77,6.58Z" />
+              <rect
+                fill={bgColor}
+                x="15.7"
+                y="12.02"
+                width="105.91"
+                height="129.6"
+              />
             </svg>
-            <ButtonLabel>postcard pdf</ButtonLabel>
-          </ShapeButton>
-        </ExportArea>
+            <img
+              src="/Icons/Stroke-Color.svg"
+              alt="Hintergrundfarbe"
+              width={95}
+              height={126}
+              style={{ display: "block", position: "relative", zIndex: 1 }}
+            />
+            <HiddenColorInput
+              value={bgColor}
+              onChange={(e) => {
+                setBgColor(e.target.value);
+                bgColorRef.current = e.target.value;
+                if (p5Ref.current) redrawStrokes(p5Ref.current);
+              }}
+            />
+          </ColorToolLabel>
+
+          <BlurButton
+            $active={brushType === "airbrush"}
+            onClick={() => {
+              const next =
+                brushTypeRef.current === "normal" ? "airbrush" : "normal";
+              setBrushType(next);
+              brushTypeRef.current = next;
+            }}
+            style={{ marginLeft: 5 }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "#ffffff",
+                WebkitMaskImage: "url('/Icons/blur.svg')",
+                maskImage: "url('/Icons/blur.svg')",
+                WebkitMaskSize: "100% 100%",
+                maskSize: "100% 100%",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+              }}
+            />
+            <img
+              src="/Icons/blur.svg"
+              alt="Blur"
+              width={100}
+              height={133}
+              style={{ display: "block", position: "relative", zIndex: 1 }}
+            />
+            <ButtonLabel>blur</ButtonLabel>
+          </BlurButton>
+
+          <ToolbarSpacer />
+
+          <ExportArea>
+            <ShapeButton onClick={handleExportJpg}>
+              <svg
+                viewBox="0 0 51.62 34.92"
+                width="85"
+                height="58"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M18.61,8.79l13.52-3.73s2.92-.95,6.63,2.05,6.63-1.5,6.63,6.18,6.63,13.52,1.59,14.32-13.26-.8-19.62,0-5.83,2.39-13.26,2.39H4.51s1.37-25.19,14.1-21.21Z" />
+              </svg>
+              <ButtonLabel>jpg</ButtonLabel>
+            </ShapeButton>
+
+            <ShapeButton onClick={handleExportPdf}>
+              <svg
+                viewBox="0 0 108.07 34.92"
+                width="175"
+                height="58"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M9.06,17.79s-3.52,9.24,8.85,10.27,40.57-3.78,40.57-3.78h13.75s4.13,5.5,10.32.69,19.47,2.23,17.41-1.55,2.9-19.65-4.32-16.21-15.79-1.14-25.47,0c-6.74.79-26.13,6.07-31.63,6.07s-10.32-3.09-16.16-3.09-16.75-6.84-14.1,1.03c1.97,5.85.77,6.58.77,6.58Z" />
+              </svg>
+              <ButtonLabel>postcard pdf</ButtonLabel>
+            </ShapeButton>
+          </ExportArea>
+        </ToolbarInner>
       </Toolbar>
+
+      {saveState === "saved" && (
+        <GalleryHint
+          onClick={() => scrollRef.current?.scrollBy({ left: scrollRef.current.clientWidth, behavior: "smooth" })}
+        >
+          gallery →
+        </GalleryHint>
+      )}
+
     </ScrollContainer>
+    <NavArrow
+      $visible={showArrows && currentSlide > 0}
+      style={{ left: 0 }}
+      onClick={() => scrollRef.current?.scrollBy({ left: -scrollRef.current.clientWidth, behavior: "smooth" })}
+      aria-label="vorherige Seite"
+    >←</NavArrow>
+    <NavArrow
+      $visible={showArrows && currentSlide > 0}
+      style={{ right: 0 }}
+      onClick={() => scrollRef.current?.scrollBy({ left: scrollRef.current.clientWidth, behavior: "smooth" })}
+      aria-label="nächste Seite"
+    >→</NavArrow>
+    </>
   );
 }
