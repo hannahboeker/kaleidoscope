@@ -9,7 +9,6 @@ export const STROKE_WEIGHT = 3;
 export const HEADER_HEIGHT = 52;
 export const FOOTER_HEIGHT = 190;
 export const FOOTER_HEIGHT_MOBILE = 110;
-
 // Größe Postkarte
 export function getSize() {
   const portrait = window.innerWidth <= BREAKPOINT;
@@ -77,7 +76,7 @@ export function buildSVG(strokes, canvasW, canvasH, bgColor = BG_COLOR) {
         const buildPath = (mirror) =>
           points
             .map((point, i) => {
-              const px = mirror ? point.x : point.x;
+              const px = point.x;
               const py = mirror ? -point.y : point.y;
               const rotatedX = px * cos - py * sin;
               const rotatedY = px * sin + py * cos;
