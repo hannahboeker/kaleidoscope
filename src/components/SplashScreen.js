@@ -1,96 +1,91 @@
 "use client";
 import { useState, useEffect } from "react";
-import styled, { keyframes, css } from "styled-components";
+import styled, { keyframes, css, createGlobalStyle } from "styled-components";
+
+const SplashGlobal = createGlobalStyle`
+  @property --splash-r {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 100%;
+  }
+`;
 
 const fadeIn = keyframes`
   from { opacity: 0; }
   to   { opacity: 1; }
 `;
 
-const fadeOut = keyframes`
-  from { opacity: 1; }
-  to   { opacity: 0; }
+const maskShrink = keyframes`
+  from { --splash-r: 100%; opacity: 1; }
+  75%  { --splash-r: 0%;   opacity: 1; }
+  to   { --splash-r: 0%;   opacity: 0; }
 `;
 
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
   background: #999999;
-  z-index: 1000;
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 10%;
+  text-align: center;
+
   ${({ $exiting }) =>
     $exiting &&
     css`
-      animation: ${fadeOut} 0.6s ease forwards;
+      mask-image: radial-gradient(
+        circle at center,
+        black 0%,
+        black var(--splash-r),
+        transparent calc(var(--splash-r) + 22%)
+      );
+      -webkit-mask-image: radial-gradient(
+        circle at center,
+        black 0%,
+        black var(--splash-r),
+        transparent calc(var(--splash-r) + 22%)
+      );
+      animation: ${maskShrink} 1.6s ease-in forwards;
     `}
 `;
 
-const TextBlock = styled.div`
-  text-align: center;
-  color: #e879f9;
+const IntroText = styled.p`
+  color: #ffffff;
   font-family: "Neumarkt", serif;
+  font-size: 23px;
   letter-spacing: 0.09em;
+  line-height: 1.2;
+  margin: 0;
   animation: ${fadeIn} 0.5s ease forwards;
 `;
 
-const Title = styled.p`
-  font-size: clamp(36px, 8vw, 72px);
-`;
-
-const Subtitle = styled.p`
-  font-size: clamp(20px, 4vw, 38px);
-  line-height: 1.35;
-`;
-
-// Phasen: "title" → "subtitle" → "exit" → "done"
 const TIMINGS = {
-  titleHold: 1400,
-  subtitleDelay: 300,
-  subtitleHold: 1600,
-  exitDuration: 600,
+  textHold: 1200,
+  exitDuration: 1600,
 };
 
 export default function SplashScreen({ onDone }) {
-  const [phase, setPhase] = useState("title");
+  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("subtitle"), TIMINGS.titleHold);
-    const t2 = setTimeout(
-      () => setPhase("exit"),
-      TIMINGS.titleHold + TIMINGS.subtitleDelay + TIMINGS.subtitleHold,
-    );
-    const t3 = setTimeout(
-      () => onDone(),
-      TIMINGS.titleHold +
-        TIMINGS.subtitleDelay +
-        TIMINGS.subtitleHold +
-        TIMINGS.exitDuration,
-    );
+    const t1 = setTimeout(() => setExiting(true), TIMINGS.textHold);
+    const t2 = setTimeout(onDone, TIMINGS.textHold + TIMINGS.exitDuration);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      clearTimeout(t3);
     };
   }, [onDone]);
 
   return (
-    <Overlay $exiting={phase === "exit"}>
-      {phase === "title" && (
-        <TextBlock key="title">
-          <Title>kaleidoscope</Title>
-        </TextBlock>
-      )}
-      {phase === "subtitle" && (
-        <TextBlock key="subtitle">
-          <Subtitle>
-            Design kaleidoscopic postcards!
-            <br />
-            write your friends :)
-          </Subtitle>
-        </TextBlock>
-      )}
-    </Overlay>
+    <>
+      <SplashGlobal />
+      <Overlay $exiting={exiting}>
+        <IntroText>
+          Design kaleidoscopic postcards.<br />Write to your friends!
+        </IntroText>
+      </Overlay>
+    </>
   );
 }

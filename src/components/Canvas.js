@@ -31,10 +31,14 @@ import {
   BrushSizeSlider,
   SaveDeleteGroup,
   NavArrow,
-  GalleryHint,
+  RightEdgeGlow,
+  CreditsSlide,
+  CreditsText,
+  CreditsLink,
 } from "./Canvas.styles";
 import { useP5Sketch } from "@/hooks/useP5Sketch";
 import { useDesigns } from "@/hooks/useDesigns";
+import SplashScreen from "./SplashScreen";
 
 export default function Canvas() {
   const containerRef = useRef(null);
@@ -48,6 +52,7 @@ export default function Canvas() {
   const brushTypeRef = useRef("normal");
   const brushSizeRef = useRef(STROKE_WEIGHT);
 
+  const [showSplash, setShowSplash] = useState(true);
   const [strokeColor, setStrokeColor] = useState(STROKE_COLOR);
   const [bgColor, setBgColor] = useState(BG_COLOR);
   const [brushType, setBrushType] = useState("normal");
@@ -242,6 +247,9 @@ export default function Canvas() {
 
   return (
     <>
+      {showSplash && (
+        <SplashScreen onDone={() => setShowSplash(false)} />
+      )}
       <ScrollContainer ref={scrollRef}>
         {/* ── Header (fixed, über alle Slides) ── */}
         <WorkspaceHeader>
@@ -343,6 +351,22 @@ export default function Canvas() {
             </DesignContent>
           </DesignSlide>
         ))}
+
+        {/* ── Credits-Slide (letzte Seite nach Galerie) ── */}
+        {savedDesigns.length > 0 && (
+          <CreditsSlide>
+            <CreditsText>
+              Designed and developed by{" "}
+              <CreditsLink
+                href="https://www.hannahboeker.de/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Hannah Böker
+              </CreditsLink>
+            </CreditsText>
+          </CreditsSlide>
+        )}
 
         {/* ── Toolbar (fixed) ── */}
         <Toolbar>
@@ -489,18 +513,6 @@ export default function Canvas() {
           </ToolbarInner>
         </Toolbar>
 
-        {saveState === "saved" && (
-          <GalleryHint
-            onClick={() =>
-              scrollRef.current?.scrollBy({
-                left: scrollRef.current.clientWidth,
-                behavior: "smooth",
-              })
-            }
-          >
-            gallery →
-          </GalleryHint>
-        )}
       </ScrollContainer>
       <NavArrow
         $visible={showArrows && currentSlide > 0}
@@ -517,7 +529,7 @@ export default function Canvas() {
         <img src="/Icons/back-yellow.svg" alt="" />
       </NavArrow>
       <NavArrow
-        $visible={showArrows && designsLoaded && currentSlide < savedDesigns.length}
+        $visible={showArrows && designsLoaded && savedDesigns.length > 0 && currentSlide <= savedDesigns.length}
         style={{ right: 0 }}
         onClick={() =>
           scrollRef.current?.scrollBy({
@@ -530,6 +542,7 @@ export default function Canvas() {
         <img src="/Icons/back.svg" alt="weiter" style={{ transform: "scaleX(-1)" }} />
         <img src="/Icons/back-yellow.svg" alt="" style={{ transform: "scaleX(-1)" }} />
       </NavArrow>
+      {saveState === "saved" && currentSlide === 0 && <RightEdgeGlow />}
     </>
   );
 }

@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import {
   HEADER_HEIGHT,
   FOOTER_HEIGHT,
@@ -315,6 +315,38 @@ const BrushSizeSlider = styled.input.attrs({ type: "range" })`
   }
 `;
 
+const CreditsSlide = styled.section`
+  height: 100dvh;
+  width: 100vw;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  background: ${PAGE_BG};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const CreditsText = styled.p`
+  color: #ffffff;
+  font-family: "Neumarkt", serif;
+  font-size: 23px;
+  letter-spacing: 0.09em;
+  text-align: center;
+  margin: 0;
+`;
+
+const CreditsLink = styled.a`
+  color: #ffffff;
+  text-decoration: none;
+  transition: color 0.2s;
+
+  @media (hover: hover) {
+    &:hover {
+      color: #e879f9;
+    }
+  }
+`;
+
 const SaveDeleteGroup = styled.div`
   display: flex;
   gap: 8px;
@@ -368,38 +400,37 @@ const NavArrow = styled.button`
   }
 `;
 
-const GalleryHint = styled.button`
+const galleryHintFade = keyframes`
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  75%  { opacity: 1; }
+  100% { opacity: 0; }
+`;
+
+const GalleryLabel = styled.span`
   position: fixed;
-  right: 3%;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 200;
+  right: 14px;
+  top: calc(50% - 70px);
+  z-index: 600;
   color: #e879f9;
   font-family: "Neumarkt", serif;
   font-size: 23px;
   letter-spacing: 0.09em;
   white-space: nowrap;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  touch-action: manipulation;
-  animation: galleryHintFade 4s ease forwards;
+  pointer-events: none;
+  animation: ${galleryHintFade} 4s ease forwards;
+`;
 
-  @keyframes galleryHintFade {
-    0% {
-      opacity: 0;
-    }
-    10% {
-      opacity: 1;
-    }
-    75% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0;
-    }
-  }
+const RightEdgeGlow = styled.div`
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100dvh;
+  width: 50px;
+  background: linear-gradient(to left, rgba(255, 0, 220, 1) 0%, rgba(255, 0, 220, 0.4) 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 400;
+  animation: ${galleryHintFade} 4s ease forwards;
 `;
 
 export {
@@ -423,5 +454,9 @@ export {
   BrushSizeSlider,
   SaveDeleteGroup,
   NavArrow,
-  GalleryHint,
+  GalleryLabel,
+  RightEdgeGlow,
+  CreditsSlide,
+  CreditsText,
+  CreditsLink,
 };
